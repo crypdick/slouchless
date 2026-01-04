@@ -1,1 +1,3 @@
-# posture-cam
+# slouchless
+
+Sloch detection and notification using a webcam.
