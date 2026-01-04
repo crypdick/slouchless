@@ -8,7 +8,7 @@ from src.settings import settings
 class Camera:
     def __init__(self):
         self.device_id, self.device_name = self._resolve_device(
-            settings.CAMERA_NAME, settings.CAMERA_DEVICE_ID
+            settings.camera_name, settings.camera_device_id
         )
         self.cap = None
 
@@ -92,7 +92,7 @@ class Camera:
         self._ensure_open()
 
         # Some webcams buffer frames; grabbing a couple frames helps ensure the read is "fresh".
-        for _ in range(max(0, settings.CAMERA_GRAB_FRAMES)):
+        for _ in range(max(0, settings.camera_grab_frames)):
             try:
                 self.cap.grab()
             except Exception as e:
@@ -118,8 +118,8 @@ class Camera:
         image = Image.fromarray(frame_rgb)
 
         # Resize based on settings
-        if settings.CAMERA_RESIZE_TO:
-            image = image.resize(settings.CAMERA_RESIZE_TO, Image.Resampling.LANCZOS)
+        if settings.camera_resize_to:
+            image = image.resize(settings.camera_resize_to, Image.Resampling.LANCZOS)
 
         return image
 

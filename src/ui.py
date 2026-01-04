@@ -62,7 +62,7 @@ def show_popup_process(image_path):
     tk_img = None
     try:
         pil_img = Image.open(image_path)
-        pil_img.thumbnail(settings.POPUP_THUMBNAIL_SIZE)
+        pil_img.thumbnail(settings.popup_thumbnail_size)
         tk_img = ImageTk.PhotoImage(pil_img)
         label = tk.Label(root, image=tk_img)
         label.pack()
@@ -105,7 +105,7 @@ def show_slouch_popup(image):
         image.save(f, format="JPEG")
         temp_path = f.name
 
-    backend = settings.POPUP_BACKEND
+    backend = settings.popup_backend
     if backend == "notify":
         # Linux: best-effort desktop notification. Most daemons will show the icon image.
         # If this fails, raise loudly (user asked to fail fast).

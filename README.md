@@ -25,12 +25,16 @@ uv run --active main.py
 
 ## Configuration
 
-You can configure the application by modifying `src/settings.py` or setting environment variables:
+Configuration is managed via `pydantic-settings` (`src/settings.py`). You can set environment variables (prefixed with `SLOUCHLESS_`) and/or create a `.env` file in the project root.
 
 | Variable | Description |
 |----------|-------------|
-| `SLOUCHLESS_CAMERA_ID` | Webcam Device ID |
-| `SLOUCHLESS_MODEL` | HuggingFace Model ID |
-| `SLOUCHLESS_GPU_UTIL` | GPU Memory Utilization (0.0-1.0) |
-| `SLOUCHLESS_QUANTIZATION` | Quantization method|
+| `SLOUCHLESS_CAMERA_DEVICE_ID` | Webcam device index (OpenCV) |
+| `SLOUCHLESS_CAMERA_NAME` | Webcam name substring (Linux `/sys/class/video4linux/.../name`) |
+| `SLOUCHLESS_CAMERA_RESIZE_TO` | Resize, e.g. `640x480` (or JSON like `[640, 480]`) |
+| `SLOUCHLESS_MODEL_NAME` | HuggingFace model ID |
+| `SLOUCHLESS_GPU_MEMORY_UTILIZATION` | GPU memory utilization (0.0-1.0) |
+| `SLOUCHLESS_QUANTIZATION` | Quantization method |
+| `SLOUCHLESS_CHECK_INTERVAL_SECONDS` | Seconds between checks |
+| `SLOUCHLESS_POPUP_BACKEND` | `notify` or `tk` |
 

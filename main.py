@@ -27,9 +27,9 @@ def monitor_loop(detector):
     camera = Camera()
     print(f"DEBUG: Using Camera: {camera.describe()}")
     debug_writer = None
-    if settings.DEBUG_SAVE_FRAMES:
-        debug_dir = resolve_debug_dir(settings.DEBUG_FRAMES_DIR)
-        debug_writer = DebugFrameWriter(debug_dir, max_frames=settings.DEBUG_MAX_FRAMES)
+    if settings.debug_save_frames:
+        debug_dir = resolve_debug_dir(settings.debug_frames_dir)
+        debug_writer = DebugFrameWriter(debug_dir, max_frames=settings.debug_max_frames)
 
     while True:
         with state.lock:
@@ -71,7 +71,7 @@ def monitor_loop(detector):
                 print("Posture OK.")
 
         # Sleep for configured interval
-        for _ in range(settings.CHECK_INTERVAL):
+        for _ in range(settings.check_interval_seconds):
             with state.lock:
                 if not state.running:
                     break
@@ -97,10 +97,10 @@ def on_quit():
 
 def main():
     print("DEBUG: Starting Slouchless...")
-    print(f"DEBUG: Webcam ID setting: {settings.CAMERA_DEVICE_ID}")
+    print(f"DEBUG: Webcam ID setting: {settings.camera_device_id}")
 
-    if settings.DEBUG_CLEAR_FRAMES_ON_START:
-        debug_dir = resolve_debug_dir(settings.DEBUG_FRAMES_DIR)
+    if settings.debug_clear_frames_on_start:
+        debug_dir = resolve_debug_dir(settings.debug_frames_dir)
         clear_debug_dir(debug_dir)
         print(f"DEBUG: Cleared debug frames dir: {debug_dir}")
 

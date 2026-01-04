@@ -6,25 +6,25 @@ from src.debug_images import DebugFrameWriter
 
 class SlouchDetector:
     def __init__(self):
-        self.model_name = settings.MODEL_NAME
+        self.model_name = settings.model_name
 
         print(f"DEBUG: Initializing vLLM with model: {self.model_name}")
-        print(f"DEBUG: GPU Utilization Limit: {settings.GPU_MEMORY_UTILIZATION}")
-        print(f"DEBUG: Quantization: {settings.QUANTIZATION}")
-        print(f"DEBUG: Enforce Eager Mode: {settings.ENFORCE_EAGER}")
-        print(f"DEBUG: Distributed Backend: {settings.DISTRIBUTED_EXECUTOR_BACKEND}")
+        print(f"DEBUG: GPU Utilization Limit: {settings.gpu_memory_utilization}")
+        print(f"DEBUG: Quantization: {settings.quantization}")
+        print(f"DEBUG: Enforce Eager Mode: {settings.enforce_eager}")
+        print(f"DEBUG: Distributed Backend: {settings.distributed_executor_backend}")
 
         # Initialize vLLM
         try:
             self.llm = LLM(
                 model=self.model_name,
                 trust_remote_code=True,
-                gpu_memory_utilization=settings.GPU_MEMORY_UTILIZATION,
-                quantization=settings.QUANTIZATION,
-                enforce_eager=settings.ENFORCE_EAGER,
-                max_num_seqs=settings.MAX_NUM_SEQS,
+                gpu_memory_utilization=settings.gpu_memory_utilization,
+                quantization=settings.quantization,
+                enforce_eager=settings.enforce_eager,
+                max_num_seqs=settings.max_num_seqs,
                 max_model_len=2048,
-                distributed_executor_backend=settings.DISTRIBUTED_EXECUTOR_BACKEND,
+                distributed_executor_backend=settings.distributed_executor_backend,
             )
             print("DEBUG: vLLM LLM object created successfully.")
         except Exception as e:
@@ -32,7 +32,7 @@ class SlouchDetector:
             raise e
 
         self.sampling_params = SamplingParams(
-            temperature=settings.TEMPERATURE, max_tokens=settings.MAX_TOKENS
+            temperature=settings.temperature, max_tokens=settings.max_tokens
         )
 
     @staticmethod
@@ -69,7 +69,7 @@ class SlouchDetector:
         debug_writer: DebugFrameWriter | None = None,
     ) -> bool:
         # Prompt format for LLaVA
-        prompt = settings.PROMPT
+        prompt = settings.prompt
 
         inputs = [{"prompt": prompt, "multi_modal_data": {"image": image}}]
 
