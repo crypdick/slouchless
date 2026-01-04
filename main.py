@@ -6,6 +6,7 @@ from src.camera import Camera
 from src.detector import SlouchDetector
 from src.ui import SlouchAppUI, show_slouch_popup
 from src.settings import settings
+from src.debug_images import DebugFrameWriter, clear_debug_dir, resolve_debug_dir
 
 
 # Global state
@@ -21,10 +22,14 @@ state = AppState()
 
 def monitor_loop(detector):
     print("DEBUG: monitor_loop started")
-    print(f"DEBUG: Using Camera ID: {settings.CAMERA_DEVICE_ID}")
 
     # Initialize Camera
     camera = Camera()
+    print(f"DEBUG: Using Camera: {camera.describe()}")
+    debug_writer = None
+    if settings.DEBUG_SAVE_FRAMES:
+        debug_dir = resolve_debug_dir(settings.DEBUG_FRAMES_DIR)
+        debug_writer = DebugFrameWriter(debug_dir, max_frames=settings.DEBUG_MAX_FRAMES)
 
     while True:
         with state.lock:
@@ -36,10 +41,27 @@ def monitor_loop(detector):
             # Capture frame
             print("Capturing frame...")
             image = camera.capture_frame()
+            saved = None
+            if debug_writer is not None:
+                saved = debug_writer.save_frame(image)
+                debug_writer.log(
+                    {
+                        "event": "frame_captured",
+                        "frame_id": saved.frame_id,
+                        "frame_path": str(saved.path),
+                        "camera_index": camera.device_id,
+                        "camera_name": camera.device_name,
+                    }
+                )
 
             # Detect
             print("Analyzing...")
-            is_slouching = detector.is_slouching(image)
+            is_slouching = detector.is_slouching(
+                image,
+                frame_id=(saved.frame_id if saved else None),
+                frame_path=(str(saved.path) if saved else None),
+                debug_writer=debug_writer,
+            )
 
             if is_slouching:
                 print("SLOUCH DETECTED!")
@@ -76,6 +98,11 @@ def on_quit():
 def main():
     print("DEBUG: Starting Slouchless...")
     print(f"DEBUG: Webcam ID setting: {settings.CAMERA_DEVICE_ID}")
+
+    if settings.DEBUG_CLEAR_FRAMES_ON_START:
+        debug_dir = resolve_debug_dir(settings.DEBUG_FRAMES_DIR)
+        clear_debug_dir(debug_dir)
+        print(f"DEBUG: Cleared debug frames dir: {debug_dir}")
 
     # Initialize Detector in MAIN thread to avoid multiprocessing/GIL deadlocks with vLLM
     print("Initializing Slouch Detector (Main Thread)...")

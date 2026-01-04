@@ -3,6 +3,11 @@ import os
 
 class Settings:
     # Camera Settings
+    # Prefer selecting by human-friendly name (matches /sys/class/video4linux/video*/name).
+    # Example:
+    #   export SLOUCHLESS_CAMERA_NAME="Logitech BRIO"
+    CAMERA_NAME = os.getenv("SLOUCHLESS_CAMERA_NAME", "").strip()
+    # Back-compat fallback only (discouraged): numeric OpenCV device id.
     CAMERA_DEVICE_ID = int(os.getenv("SLOUCHLESS_CAMERA_ID", 0))
     CAMERA_RESIZE_TO = (640, 480)  # (width, height)
 
@@ -29,13 +34,36 @@ class Settings:
     TEMPERATURE = 0.0
 
     # Prompt
-    PROMPT = "USER: <image>\nIs the person in this image slouching? Answer strictly with 'Yes' or 'No'.\nASSISTANT:"
+    PROMPT = (
+        "USER: <image>\n"
+        "Look at the person's posture. If they are slouching (rounded shoulders, "
+        "forward head/neck, hunched/curved upper back), answer 'Yes'. If they are "
+        "sitting/standing upright with a neutral spine, answer 'No'.\n"
+        "If you cannot determine from the image, answer with 'Error: <short reason>'.\n"
+        "Your response must start with exactly one of: Yes, No, or Error:.\n"
+        "ASSISTANT:"
+    )
 
     # Application Settings
     CHECK_INTERVAL = 30  # seconds
 
+    # Debugging
+    # Save recent frames to disk so you can inspect what the VLM actually saw.
+    DEBUG_SAVE_FRAMES = os.getenv("SLOUCHLESS_DEBUG_SAVE_FRAMES", "1") == "1"
+    DEBUG_CLEAR_FRAMES_ON_START = (
+        os.getenv("SLOUCHLESS_DEBUG_CLEAR_ON_START", "1") == "1"
+    )
+    DEBUG_MAX_FRAMES = int(os.getenv("SLOUCHLESS_DEBUG_MAX_FRAMES", "20"))
+    DEBUG_FRAMES_DIR = os.getenv("SLOUCHLESS_DEBUG_FRAMES_DIR", "debug_frames")
+
+    # Camera capture quality/debugging
+    # Some webcams buffer frames; grabbing a couple frames helps ensure we get the "latest" image.
+    CAMERA_GRAB_FRAMES = int(os.getenv("SLOUCHLESS_CAMERA_GRAB_FRAMES", "2"))
+
     # UI
     POPUP_THUMBNAIL_SIZE = (600, 600)
+    # Popup backend: on Linux, "notify" is much more reliable than Tk + multiprocessing under X11/Wayland.
+    POPUP_BACKEND = os.getenv("SLOUCHLESS_POPUP_BACKEND", "notify").strip().lower()
 
 
 settings = Settings()

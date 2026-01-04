@@ -2,6 +2,7 @@ import pystray
 from PIL import Image, ImageDraw, ImageTk
 import tkinter as tk
 from src.settings import settings
+import subprocess
 
 
 def create_icon_image(color="green", size=(64, 64)):
@@ -55,14 +56,25 @@ def show_popup_process(image_path):
     root = tk.Tk()
     root.title("SLOUCH DETECTED!")
 
-    # Load image
-    pil_img = Image.open(image_path)
-    # Resize for display based on settings
-    pil_img.thumbnail(settings.POPUP_THUMBNAIL_SIZE)
-    tk_img = ImageTk.PhotoImage(pil_img)
-
-    label = tk.Label(root, image=tk_img)
-    label.pack()
+    # Load image (best-effort). On some Linux setups, ImageTk can fail when a process is
+    # created via fork (or when Tk/Pillow extensions are mismatched). We'll fall back
+    # to a text-only popup if we can't render the image.
+    tk_img = None
+    try:
+        pil_img = Image.open(image_path)
+        pil_img.thumbnail(settings.POPUP_THUMBNAIL_SIZE)
+        tk_img = ImageTk.PhotoImage(pil_img)
+        label = tk.Label(root, image=tk_img)
+        label.pack()
+    except Exception as e:
+        fallback = tk.Label(
+            root,
+            text=f"(Image preview unavailable)\n{e}",
+            font=("Helvetica", 10),
+            fg="gray",
+            justify="left",
+        )
+        fallback.pack(padx=10, pady=10)
 
     text_label = tk.Label(
         root,
@@ -86,8 +98,6 @@ def show_slouch_popup(image):
     We use a temporary file to pass the image to a fresh process/thread safe method
     or just display it if we can.
     """
-    import multiprocessing
-
     # Save image to temp file to pass to process
     import tempfile
 
@@ -95,6 +105,41 @@ def show_slouch_popup(image):
         image.save(f, format="JPEG")
         temp_path = f.name
 
-    p = multiprocessing.Process(target=show_popup_process, args=(temp_path,))
-    p.start()
-    # We can clean up the file later or let OS handle tmp
+    backend = settings.POPUP_BACKEND
+    if backend == "notify":
+        # Linux: best-effort desktop notification. Most daemons will show the icon image.
+        # If this fails, raise loudly (user asked to fail fast).
+        try:
+            subprocess.run(
+                [
+                    "notify-send",
+                    "Slouchless",
+                    "You are slouching! Sit up straight!",
+                    "-i",
+                    temp_path,
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            return
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                "Popup backend 'notify' requires `notify-send` (libnotify). "
+                "Install it or set SLOUCHLESS_POPUP_BACKEND=tk."
+            ) from e
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"notify-send failed: {e.stderr}") from e
+
+    if backend == "tk":
+        import multiprocessing
+
+        # On Linux, the default start method is often "fork", which can break Tk/Pillow
+        # (and also triggers tokenizers fork warnings). "spawn" starts a fresh interpreter.
+        ctx = multiprocessing.get_context("spawn")
+        p = ctx.Process(target=show_popup_process, args=(temp_path,))
+        p.start()
+        return
+
+    raise ValueError(f"Unknown SLOUCHLESS_POPUP_BACKEND={backend!r}")
