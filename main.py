@@ -19,15 +19,12 @@ class AppState:
 state = AppState()
 
 
-def monitor_loop():
-    print("Initializing Camera...")
-    # Let exceptions propagate (fail fast)
-    camera = Camera()
+def monitor_loop(detector):
+    print("DEBUG: monitor_loop started")
+    print(f"DEBUG: Using Camera ID: {settings.CAMERA_DEVICE_ID}")
 
-    print("Initializing Slouch Detector (this may take a while)...")
-    # Let exceptions propagate (fail fast)
-    detector = SlouchDetector()
-    print("Detector initialized.")
+    # Initialize Camera
+    camera = Camera()
 
     while True:
         with state.lock:
@@ -38,7 +35,6 @@ def monitor_loop():
         if is_enabled:
             # Capture frame
             print("Capturing frame...")
-            # Resize handled inside camera based on settings
             image = camera.capture_frame()
 
             # Detect
@@ -78,8 +74,18 @@ def on_quit():
 
 
 def main():
-    # Start the monitoring thread
-    monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
+    print("DEBUG: Starting Slouchless...")
+    print(f"DEBUG: Webcam ID setting: {settings.CAMERA_DEVICE_ID}")
+
+    # Initialize Detector in MAIN thread to avoid multiprocessing/GIL deadlocks with vLLM
+    print("Initializing Slouch Detector (Main Thread)...")
+    detector = SlouchDetector()
+    print("DEBUG: Detector initialized in Main Thread.")
+
+    # Start the monitoring thread, passing the initialized detector
+    monitor_thread = threading.Thread(
+        target=monitor_loop, args=(detector,), daemon=True
+    )
     monitor_thread.start()
 
     # Start the UI (Blocking)

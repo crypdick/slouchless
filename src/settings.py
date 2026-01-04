@@ -12,8 +12,8 @@ class Settings:
 
     # GPU Memory Utilization (0.0 to 1.0).
     # With AWQ, we need much less memory.
-    # Bump to 0.8 to fit KV cache.
-    GPU_MEMORY_UTILIZATION = float(os.getenv("SLOUCHLESS_GPU_UTIL", "0.8"))
+    # Bump to 0.7 to fit KV cache.
+    GPU_MEMORY_UTILIZATION = float(os.getenv("SLOUCHLESS_GPU_UTIL", "0.7"))
 
     # Quantization: Set to "awq_marlin" for faster inference with compatible models (like ybelkada/llava-1.5-7b-hf-awq).
     QUANTIZATION = os.getenv("SLOUCHLESS_QUANTIZATION", "awq_marlin")
@@ -22,6 +22,9 @@ class Settings:
     MAX_NUM_SEQS = 1
     ENFORCE_EAGER = True
 
+    # Backend
+    # Use 'ray' or 'mp' (multiprocessing). Ray is more robust for some setups.
+    DISTRIBUTED_EXECUTOR_BACKEND = "ray"
     MAX_TOKENS = 10
     TEMPERATURE = 0.0
 
