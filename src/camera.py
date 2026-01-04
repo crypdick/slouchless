@@ -7,10 +7,11 @@ from src.settings import settings
 
 class Camera:
     def __init__(self):
+        # Ensure this always exists, even if device resolution raises.
+        self.cap = None
         self.device_id, self.device_name = self._resolve_device(
             settings.camera_name, settings.camera_device_id
         )
-        self.cap = None
 
     @staticmethod
     def _device_name_from_sys(index: int) -> str | None:
@@ -34,7 +35,7 @@ class Camera:
 
     @classmethod
     def _resolve_device(
-        cls, preferred_name: str, fallback_index: int
+        cls, preferred_name: str, fallback_index: int | None
     ) -> tuple[int, str]:
         preferred_name = (preferred_name or "").strip()
         if preferred_name:
@@ -53,17 +54,61 @@ class Camera:
                     f"Available cameras: {available_str}"
                 )
             if len(matches) > 1:
+                # If we have multiple matches but exactly one is an exact match, prefer it.
+                exact_matches = [
+                    (idx, name)
+                    for idx, name in matches
+                    if name.strip().lower() == preferred_name.lower()
+                ]
+
+                # Allow disambiguation via explicit device id if provided.
+                if fallback_index is not None:
+                    for idx, name in matches:
+                        if idx == fallback_index:
+                            return (idx, name)
+                    raise RuntimeError(
+                        f"SLOUCHLESS_CAMERA_DEVICE_ID={fallback_index} did not match any camera "
+                        f"that matched SLOUCHLESS_CAMERA_NAME={preferred_name!r}: {matches}."
+                    )
+
+                # If the name is an exact match for multiple devices, deterministically pick the
+                # FIRST exact match (in the discovered order) but warn loudly so the user can
+                # disambiguate if needed.
+                if len(exact_matches) > 1:
+                    chosen = exact_matches[0]
+                    print(
+                        f"WARNING: Multiple webcams exactly matched SLOUCHLESS_CAMERA_NAME="
+                        f"{preferred_name!r}: {exact_matches}. "
+                        f"Auto-selecting first match: {chosen[0]}. "
+                        "Set SLOUCHLESS_CAMERA_DEVICE_ID to silence this warning.",
+                        file=sys.stderr,
+                    )
+                    return chosen
+
+                ids = [idx for idx, _ in matches]
                 raise RuntimeError(
                     f"Multiple webcams matched SLOUCHLESS_CAMERA_NAME={preferred_name!r}: {matches}. "
-                    "Use a more specific substring."
+                    f"Set SLOUCHLESS_CAMERA_DEVICE_ID to one of {ids}, or use a more specific substring."
                 )
             return matches[0]
 
-        # Fallback to numeric index
-        resolved_name = (
-            cls._device_name_from_sys(fallback_index) or f"video{fallback_index}"
+        # If no name provided, optionally use numeric index (if configured).
+        if fallback_index is not None:
+            resolved_name = (
+                cls._device_name_from_sys(fallback_index) or f"video{fallback_index}"
+            )
+            return fallback_index, resolved_name
+
+        # Auto-detect: if exactly one camera is present, use it; otherwise fail fast.
+        available = cls._list_linux_video_devices()
+        if len(available) == 1:
+            return available[0]
+        available_str = ", ".join([f"{i}:{n}" for i, n in available]) or "(none found)"
+        raise RuntimeError(
+            "No camera configured. Set SLOUCHLESS_CAMERA_NAME (recommended) or "
+            "SLOUCHLESS_CAMERA_DEVICE_ID. "
+            f"Available cameras: {available_str}"
         )
-        return fallback_index, resolved_name
 
     def describe(self) -> str:
         return f"{self.device_name} (index={self.device_id})"
@@ -124,8 +169,9 @@ class Camera:
         return image
 
     def release(self):
-        if self.cap is not None:
-            self.cap.release()
+        cap = getattr(self, "cap", None)
+        if cap is not None:
+            cap.release()
             self.cap = None
 
     def __del__(self):

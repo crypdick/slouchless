@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _project_root() -> Path:
+    # This file lives in <root>/src/; parent of src is the project root.
+    return Path(__file__).resolve().parents[1]
 
 
 def _parse_size_tuple(value: Any) -> tuple[int, int] | None:
@@ -45,7 +51,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="SLOUCHLESS_",
-        env_file=".env",
+        # Use an absolute path so `.env` is loaded even if the process CWD isn't the repo root.
+        env_file=_project_root() / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -53,7 +60,11 @@ class Settings(BaseSettings):
 
     # Camera
     camera_name: str = Field(default="", description="Webcam name substring to match")
-    camera_device_id: int = Field(default=0, ge=0, description="OpenCV device index")
+    camera_device_id: int | None = Field(
+        default=None,
+        ge=0,
+        description="OpenCV device index (optional; auto-detect if unset)",
+    )
     camera_resize_to: tuple[int, int] | None = Field(default=(640, 480))
     camera_grab_frames: int = Field(default=2, ge=0)
 

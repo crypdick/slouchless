@@ -97,7 +97,11 @@ def on_quit():
 
 def main():
     print("DEBUG: Starting Slouchless...")
-    print(f"DEBUG: Webcam ID setting: {settings.camera_device_id}")
+    print(
+        "DEBUG: Camera config: "
+        f"camera_name={settings.camera_name!r} "
+        f"camera_device_id={settings.camera_device_id!r}"
+    )
 
     if settings.debug_clear_frames_on_start:
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)

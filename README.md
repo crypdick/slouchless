@@ -29,7 +29,7 @@ Configuration is managed via `pydantic-settings` (`src/settings.py`). You can se
 
 | Variable | Description |
 |----------|-------------|
-| `SLOUCHLESS_CAMERA_DEVICE_ID` | Webcam device index (OpenCV) |
+| `SLOUCHLESS_CAMERA_DEVICE_ID` | Webcam device index (OpenCV). If unset, Slouchless auto-detects **only if exactly one** camera is found. |
 | `SLOUCHLESS_CAMERA_NAME` | Webcam name substring (Linux `/sys/class/video4linux/.../name`) |
 | `SLOUCHLESS_CAMERA_RESIZE_TO` | Resize, e.g. `640x480` (or JSON like `[640, 480]`) |
 | `SLOUCHLESS_MODEL_NAME` | HuggingFace model ID |
