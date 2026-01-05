@@ -68,9 +68,36 @@ class SlouchDetector:
         frame_path: str | None = None,
         debug_writer: DebugFrameWriter | None = None,
     ) -> bool:
-        # Prompt format for LLaVA
-        prompt = settings.prompt
+        result = self.analyze(
+            image,
+            frame_id=frame_id,
+            frame_path=frame_path,
+            debug_writer=debug_writer,
+        )
+        if result["kind"] == "error":
+            raise RuntimeError(
+                f"{result['message']} (frame_id={frame_id} frame_path={frame_path})"
+            )
+        return bool(result["slouching"])
 
+    def analyze(
+        self,
+        image: Image.Image,
+        *,
+        frame_id: str | None = None,
+        frame_path: str | None = None,
+        debug_writer: DebugFrameWriter | None = None,
+    ) -> dict[str, object]:
+        """
+        Structured inference result for UI feedback.
+
+        Returns dict with:
+          - kind: "good" | "bad" | "error"
+          - slouching: bool | None
+          - message: str (human-friendly)
+          - raw_output: str
+        """
+        prompt = settings.prompt
         inputs = [{"prompt": prompt, "multi_modal_data": {"image": image}}]
 
         outputs = self.llm.generate(
@@ -99,13 +126,31 @@ class SlouchDetector:
             )
 
         if parsed is None:
-            raise ValueError(
-                "VLM output was not parseable as starting with Yes/No/Error:. "
-                f"frame_id={frame_id} frame_path={frame_path} raw_output={generated_text!r}"
-            )
+            return {
+                "kind": "error",
+                "slouching": None,
+                "message": "⚠️ Unparseable model output",
+                "raw_output": generated_text,
+            }
         if isinstance(parsed, tuple) and parsed[0] == "error":
-            raise RuntimeError(
-                f"VLM reported error: {parsed[1]} "
-                f"(frame_id={frame_id} frame_path={frame_path})"
-            )
-        return parsed
+            return {
+                "kind": "error",
+                "slouching": None,
+                "message": f"⚠️ Model error: {parsed[1]}",
+                "raw_output": generated_text,
+            }
+
+        slouching = bool(parsed)
+        if slouching:
+            return {
+                "kind": "bad",
+                "slouching": True,
+                "message": "bad posture!",
+                "raw_output": generated_text,
+            }
+        return {
+            "kind": "good",
+            "slouching": False,
+            "message": "good posture",
+            "raw_output": generated_text,
+        }
