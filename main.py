@@ -71,22 +71,19 @@ def monitor_loop(detector):
                 logger.info("SLOUCH DETECTED!")
                 from src.ui import show_slouch_popup, resolve_popup_backend
 
-                # If the popup opens the webcam (ffplay or Tk live), release our capture
-                # first to avoid device contention; then reopen afterwards.
+                # If the popup opens the webcam (ffplay live), release our capture first
+                # to avoid device contention; then reopen afterwards.
                 effective_backend = resolve_popup_backend()
                 feedback_mode = (
-                    settings.tk_popup_mode == "feedback"
-                    and effective_backend == "ffplay"
+                    settings.popup_mode == "feedback" and effective_backend == "ffplay"
                 )
                 will_use_webcam = (
-                    effective_backend in ("ffplay",)
-                    and not feedback_mode
-                    or (effective_backend == "tk" and settings.tk_popup_mode == "live")
+                    settings.popup_mode == "live" and effective_backend == "ffplay"
                 )
                 logger.debug(
-                    "popup resolved backend=%r tk_popup_mode=%r feedback_mode=%s",
+                    "popup resolved backend=%r popup_mode=%r feedback_mode=%s",
                     effective_backend,
-                    settings.tk_popup_mode,
+                    settings.popup_mode,
                     feedback_mode,
                 )
 
@@ -107,13 +104,13 @@ def monitor_loop(detector):
                         import threading
 
                         interval_s = max(
-                            0.05, float(settings.tk_popup_feedback_interval_ms) / 1000.0
+                            0.05, float(settings.popup_feedback_interval_ms) / 1000.0
                         )
 
                         # Keep the window updating smoothly even if inference is slow:
                         # - video pump: captures frames ~15fps and streams to ffplay
                         # - inference worker: analyzes latest frame at interval_s and updates overlay text
-                        pump_fps = 15.0
+                        pump_fps = float(settings.popup_preview_fps)
                         pump_dt = 1.0 / pump_fps
 
                         overlay_lock = threading.Lock()
@@ -256,9 +253,6 @@ def on_quit():
     logger.info("Quitting application...")
     with state.lock:
         state.running = False
-    from src.ui import shutdown_popup_worker
-
-    shutdown_popup_worker()
 
 
 def main():
@@ -284,19 +278,6 @@ def main():
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
         clear_debug_dir(debug_dir)
         logger.debug("Cleared debug frames dir: %s", debug_dir)
-
-    # Start popup worker EARLY (before any threads/UI) to avoid xcb/X11 crashes when
-    # opening Tk windows from a threaded app.
-    if settings.popup_backend in ("tk", "auto"):
-        import os
-
-        has_display = bool(
-            os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
-        )
-        if settings.popup_backend == "tk" or has_display:
-            from src.ui import init_popup_worker
-
-            init_popup_worker()
 
     # Initialize Detector in MAIN thread to avoid multiprocessing/GIL deadlocks with vLLM
     logger.info("Initializing Slouch Detector (Main Thread)...")
