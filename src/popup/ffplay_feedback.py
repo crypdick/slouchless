@@ -110,6 +110,7 @@ def send_feedback_frame(
     kind: str,
     message: str,
     raw_output: str | None = None,
+    countdown_secs: float = 0.0,
     fps: int = 15,
     thumbnail_size: tuple[int, int],
 ) -> bool:
@@ -128,6 +129,7 @@ def send_feedback_frame(
         kind=kind,
         message=message,
         raw_output=raw_output,
+        countdown_secs=countdown_secs,
         thumbnail_size=thumbnail_size,
     )
 

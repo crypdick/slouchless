@@ -47,11 +47,12 @@ class SlouchDetector:
         )
 
     @staticmethod
-    def _parse_yes_no_or_error(text: str) -> bool | tuple[str, str] | None:
+    def _parse_response(text: str) -> dict | None:
         """
         Returns:
-          - True/False if response starts with Yes/No (extra text allowed)
-          - ("error", <message>) if response starts with Error: ...
+          - {"type": "yes", "explanation": <str>} if response starts with Yes
+          - {"type": "no", "explanation": <str>} if response starts with No
+          - {"type": "error", "explanation": <str>} if response starts with Error:
           - None if unparseable
         """
         cleaned = text.strip()
@@ -61,14 +62,25 @@ class SlouchDetector:
         lowered = cleaned.lower()
         if lowered.startswith("error:"):
             msg = cleaned.split(":", 1)[1].strip()
-            return ("error", msg or "unknown error")
+            return {"type": "error", "explanation": msg or "unknown error"}
 
         # Accept trailing explanation, but first token must be Yes/No.
         first = lowered.split()[0].strip().strip(".,!?:;\"'()[]{}")
         if first == "yes":
-            return True
+            # Extract explanation after "Yes" - look for comma or just take rest
+            rest = cleaned[3:].strip()  # Skip "Yes"
+            if rest.startswith(","):
+                rest = rest[1:].strip()
+            elif rest.startswith("-"):
+                rest = rest[1:].strip()
+            return {"type": "yes", "explanation": rest}
         if first == "no":
-            return False
+            rest = cleaned[2:].strip()  # Skip "No"
+            if rest.startswith(","):
+                rest = rest[1:].strip()
+            elif rest.startswith("-"):
+                rest = rest[1:].strip()
+            return {"type": "no", "explanation": rest}
         return None
 
     def is_slouching(
@@ -89,7 +101,7 @@ class SlouchDetector:
             raise RuntimeError(
                 f"{result['message']} (frame_id={frame_id} frame_path={frame_path})"
             )
-        return bool(result["slouching"])
+        return result["slouching"] is True
 
     def analyze(
         self,
@@ -116,7 +128,7 @@ class SlouchDetector:
         generated_text = outputs[0].outputs[0].text.strip()
         logger.info("VLM Output: %s", generated_text.strip())
 
-        parsed = self._parse_yes_no_or_error(generated_text)
+        parsed = self._parse_response(generated_text)
         if debug_writer is not None:
             debug_writer.log(
                 {
@@ -134,28 +146,30 @@ class SlouchDetector:
             return {
                 "kind": "error",
                 "slouching": None,
-                "message": "⚠️ Unparseable model output",
+                "message": "Unparseable model output",
                 "raw_output": generated_text,
             }
-        if isinstance(parsed, tuple) and parsed[0] == "error":
+        if parsed["type"] == "error":
             return {
                 "kind": "error",
                 "slouching": None,
-                "message": f"⚠️ Model error: {parsed[1]}",
+                "message": parsed["explanation"] or "unknown error",
                 "raw_output": generated_text,
             }
 
-        slouching = bool(parsed)
-        if slouching:
+        if parsed["type"] == "yes":
+            # Slouching detected - show the explanation as the message
+            explanation = parsed["explanation"]
             return {
                 "kind": "bad",
                 "slouching": True,
-                "message": "bad posture!",
+                "message": explanation if explanation else "fix your posture!",
                 "raw_output": generated_text,
             }
+        # Good posture
         return {
             "kind": "good",
             "slouching": False,
-            "message": "good posture",
+            "message": "good posture!",
             "raw_output": generated_text,
         }

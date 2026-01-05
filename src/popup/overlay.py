@@ -102,6 +102,7 @@ def render_feedback_frame(
     kind: str,
     message: str,
     raw_output: str | None,
+    countdown_secs: float = 0.0,
     thumbnail_size: tuple[int, int],
 ) -> bytes:
     """
@@ -119,49 +120,87 @@ def render_feedback_frame(
         headline = "GOOD POSTURE"
     elif kind == "bad":
         color = (239, 68, 68)
-        headline = "BAD POSTURE!!!"
+        headline = "BAD POSTURE"
     else:
         color = (245, 158, 11)
         headline = "MODEL ERROR"
 
-    banner_h = max(120, int(h * 0.20))
+    banner_h = max(140, int(h * 0.24))
     draw.rectangle([0, 0, int(w), banner_h], fill=(0, 0, 0))
 
-    icon_size = int(min(banner_h * 0.72, w * 0.14))
+    icon_size = int(min(banner_h * 0.50, w * 0.12))
     icon_x = 16
-    icon_y = int((banner_h - icon_size) // 2)
+    icon_y = int(banner_h * 0.08)
     _draw_icon(draw, kind=kind, x=icon_x, y=icon_y, size=icon_size)
 
     honk = _assets_font("Honk-Regular-VariableFont_MORF,SHLN.ttf")
     glitch = _assets_font("RubikGlitch-Regular.ttf")
     if kind == "good":
-        main_font = _load_font(honk, int(banner_h * 0.52))
-        sub_font = _load_font(honk, int(banner_h * 0.26))
+        main_font = _load_font(honk, int(banner_h * 0.36))
+        sub_font = _load_font(honk, int(banner_h * 0.18))
     else:
-        main_font = _load_font(glitch, int(banner_h * 0.50))
-        sub_font = _load_font(glitch, int(banner_h * 0.24))
+        main_font = _load_font(glitch, int(banner_h * 0.34))
+        sub_font = _load_font(glitch, int(banner_h * 0.16))
 
     text_x = icon_x + icon_size + 16
-    text_y = int(banner_h * 0.10)
+    text_y = int(banner_h * 0.06)
     for dx, dy in [(-3, -3), (3, -3), (-3, 3), (3, 3), (2, 2)]:
         draw.text((text_x + dx, text_y + dy), headline, font=main_font, fill=(0, 0, 0))
     draw.text((text_x, text_y), headline, font=main_font, fill=color)
 
+    # Show the model's feedback message prominently
     msg_clean = _strip_known_emoji_tofu((message or "").strip())
     if msg_clean:
+        # Wrap long messages
+        max_chars = 45
+        if len(msg_clean) > max_chars:
+            # Simple word-wrap
+            words = msg_clean.split()
+            lines = []
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_chars:
+                    current_line = f"{current_line} {word}".strip()
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+            msg_clean = "\n".join(lines[:2])  # Max 2 lines
+
         draw.text(
-            (text_x, int(banner_h * 0.58)),
+            (text_x, int(banner_h * 0.40)),
             msg_clean,
             font=sub_font,
             fill=(255, 255, 255),
         )
-    if raw_output:
-        draw.text(
-            (text_x, int(banner_h * 0.78)),
-            f"raw: {raw_output[:140]}",
-            font=sub_font,
-            fill=(200, 200, 200),
-        )
+
+    # Draw countdown timer in corner
+    countdown_font = _load_font(glitch, int(banner_h * 0.22))
+    countdown_text = f"Next: {countdown_secs:.1f}s"
+    # Position in top-right corner of banner
+    countdown_x = int(w) - 120
+    countdown_y = int(banner_h * 0.06)
+
+    # Draw countdown background pill
+    pill_padding = 8
+    bbox = draw.textbbox(
+        (countdown_x, countdown_y), countdown_text, font=countdown_font
+    )
+    pill_rect = [
+        bbox[0] - pill_padding,
+        bbox[1] - pill_padding // 2,
+        bbox[2] + pill_padding,
+        bbox[3] + pill_padding // 2,
+    ]
+    draw.rounded_rectangle(pill_rect, radius=8, fill=(40, 40, 40))
+    draw.text(
+        (countdown_x, countdown_y),
+        countdown_text,
+        font=countdown_font,
+        fill=(180, 180, 180),
+    )
 
     buf = io.BytesIO()
     canvas.save(buf, format="JPEG", quality=80)

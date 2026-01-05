@@ -75,26 +75,38 @@ class Settings(BaseSettings):
     max_num_seqs: int = Field(default=1, ge=1)
     enforce_eager: bool = Field(default=True)
     distributed_executor_backend: Literal["ray", "mp"] = Field(default="ray")
-    max_tokens: int = Field(default=10, ge=1)
+    max_tokens: int = Field(default=80, ge=1)
     temperature: float = Field(default=0.0, ge=0.0)
     prompt: str = Field(
         default=(
             "USER: <image>\n"
-            "Look at the person's posture. If they are slouching (rounded shoulders, "
-            "forward head/neck, hunched/curved upper back), answer 'Yes'. If they are "
-            "sitting/standing upright with a neutral spine, answer 'No'.\n"
-            "If you cannot determine from the image, answer with 'Error: <short reason>'.\n"
-            "Your response must start with exactly one of: Yes, No, or Error:.\n"
+            "Check this person's posture. Say 'Yes' with advice if ANY of these are true:\n"
+            "- Head/neck leaning forward (ear ahead of shoulder)\n"
+            "- Shoulders rounded forward\n"
+            "- Upper back curved/hunched\n"
+            "- Spine not straight\n\n"
+            "Say 'No' ONLY if spine is reasonably straight with head directly over shoulders. Posture doesn't have to be perfect, we are just alerting if the person has obviously bad posture.\n\n"
+            "FORMAT: Start with Yes/No/Error\n"
+            "- Yes, <what to fix>\n"
+            "- No\n"
+            "- Error: <reason>\n\n"
+            "EXAMPLES (you don't need to use these exact reasons):\n"
+            "- Yes, pull shoulders back under your ears\n"
+            "- Yes, tuck chin - head is forward\n"
+            "- Yes, straighten upper back\n"
+            "- No\n"
+            "- Error: person not in frame\n"
+            "- Error: image is completely black\n\n"
             "ASSISTANT:"
         )
     )
 
     # App
-    check_interval_seconds: int = Field(default=30, ge=1)
+    check_interval_seconds: int = Field(default=15, ge=1)
 
     # Debug
-    debug_save_frames: bool = Field(default=False)
-    debug_clear_frames_on_start: bool = Field(default=False)
+    debug_save_frames: bool = Field(default=True)
+    debug_clear_frames_on_start: bool = Field(default=True)
     debug_max_frames: int = Field(default=20, ge=1)
     debug_frames_dir: str = Field(default="debug_frames")
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
@@ -105,10 +117,10 @@ class Settings(BaseSettings):
     # UI
     popup_thumbnail_size: tuple[int, int] = Field(default=(600, 600))
     popup_feedback_interval_ms: int = Field(
-        default=500,
+        default=3000,
         ge=50,
         le=10_000,
-        description="Inference cadence while the feedback popup is open.",
+        description="Inference cadence while the feedback popup is open (ms).",
     )
     popup_preview_fps: int = Field(
         default=15,

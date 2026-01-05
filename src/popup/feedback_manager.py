@@ -38,9 +38,10 @@ class FeedbackManager:
         overlay_lock = threading.Lock()
         latest_frame = {"img": initial_image}
         overlay = {
-            "kind": "error",
-            "message": "starting…",
+            "kind": "bad",
+            "message": "analyzing...",
             "raw_output": "",
+            "next_inference_at": time.time(),  # Will be updated after first inference
         }
 
         # Force ffplay to open immediately with an initial frame.
@@ -49,6 +50,7 @@ class FeedbackManager:
             kind=str(overlay["kind"]),
             message=str(overlay["message"]),
             raw_output=str(overlay["raw_output"]),
+            countdown_secs=0.0,
             fps=int(self.pump_fps),
             thumbnail_size=settings.popup_thumbnail_size,
         )
@@ -78,11 +80,13 @@ class FeedbackManager:
                         overlay["kind"] = str(result.get("kind") or "error")
                         overlay["message"] = str(result.get("message") or "error")
                         overlay["raw_output"] = str(result.get("raw_output") or "")
+                        overlay["next_inference_at"] = time.time() + self.interval_s
                 except Exception as e:
                     with overlay_lock:
                         overlay["kind"] = "error"
                         overlay["message"] = f"{type(e).__name__}: {e}"
                         overlay["raw_output"] = ""
+                        overlay["next_inference_at"] = time.time() + self.interval_s
 
         inference_thread = threading.Thread(target=_infer_worker, daemon=True)
         inference_thread.start()
@@ -98,12 +102,17 @@ class FeedbackManager:
                     k = str(overlay["kind"])
                     m = str(overlay["message"])
                     r = str(overlay["raw_output"])
+                    next_at = float(overlay["next_inference_at"])
+
+                # Calculate countdown
+                countdown = max(0.0, next_at - time.time())
 
                 ok = send_feedback_frame(
                     img,
                     kind=k,
                     message=m,
                     raw_output=r,
+                    countdown_secs=countdown,
                     fps=int(self.pump_fps),
                     thumbnail_size=settings.popup_thumbnail_size,
                 )
