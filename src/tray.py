@@ -24,12 +24,12 @@ class SlouchAppUI:
         self.icon = None
         self.enabled = True
 
-    def _on_toggle(self, icon, item):
+    def _on_toggle(self, icon, _item):
         self.enabled = not self.enabled
         self.toggle_callback(self.enabled)
         self.update_icon()
 
-    def _on_quit(self, icon, item):
+    def _on_quit(self, icon, _item):
         self.quit_callback()
         icon.stop()
 
@@ -44,7 +44,7 @@ class SlouchAppUI:
 
         menu = pystray.Menu(
             pystray.MenuItem(
-                "Enable/Disable", self._on_toggle, checked=lambda item: self.enabled
+                "Enable/Disable", self._on_toggle, checked=lambda _: self.enabled
             ),
             pystray.MenuItem("Quit", self._on_quit),
         )
