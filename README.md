@@ -1,6 +1,6 @@
 # Slouchless
 
-A Python-based background application that uses a webcam and vision-language model (VLM) to detect slouching, controllable via a system tray icon. Supports both local models (via vLLM) and OpenAI's Vision API.
+An application that uses a webcam and vision-language model (VLM) to detect slouching, controllable via a system tray icon. Supports both local models (via vLLM) and OpenAI's Vision API.
 
 
 ## Requirements
