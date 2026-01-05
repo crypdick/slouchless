@@ -2,6 +2,8 @@
 
 An application that uses a webcam and vision-language model (VLM) to detect slouching, controllable via a system tray icon. Supports both local models (via vLLM) and OpenAI's Vision API.
 
+![Demo](assets/demo.gif)
+
 
 ## Requirements
 - Webcam
