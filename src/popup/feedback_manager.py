@@ -6,8 +6,7 @@ from typing import Callable
 from PIL import Image
 
 from src.settings import settings
-from src.popup import show_slouch_popup
-from src.popup.ffplay_feedback import send_feedback_frame
+from src.popup.ffplay_feedback import send_feedback_frame, show_slouch_popup
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +29,7 @@ class FeedbackManager:
         Runs the feedback loop, showing the ffplay popup and running inference
         continuously until closed or stopped.
         """
-        # Open ffplay feedback window.
-        # Note: show_slouch_popup just initializes the window if needed (via open_feedback_window)
-        # We might want to rename/refactor that in the future, but using existing generic name.
-        show_slouch_popup(initial_image)
+        show_slouch_popup()
 
         overlay_lock = threading.Lock()
         latest_frame = {"img": initial_image}
@@ -44,14 +40,13 @@ class FeedbackManager:
             "next_inference_at": time.time(),  # Will be updated after first inference
         }
 
-        # Force ffplay to open immediately with an initial frame.
+        # Push initial frame immediately.
         send_feedback_frame(
             initial_image,
             kind=str(overlay["kind"]),
             message=str(overlay["message"]),
             raw_output=str(overlay["raw_output"]),
             countdown_secs=0.0,
-            fps=int(self.pump_fps),
             thumbnail_size=settings.popup_thumbnail_size,
         )
 
@@ -113,7 +108,6 @@ class FeedbackManager:
                     message=m,
                     raw_output=r,
                     countdown_secs=countdown,
-                    fps=int(self.pump_fps),
                     thumbnail_size=settings.popup_thumbnail_size,
                 )
                 if not ok:

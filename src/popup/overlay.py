@@ -12,10 +12,6 @@ def _assets_path(name: str) -> Path:
     return Path(__file__).resolve().parents[2] / "assets" / name
 
 
-def _assets_font(name: str) -> Path:
-    return _assets_path(name)
-
-
 @lru_cache(maxsize=8)
 def _load_icon_image(name: str, size: int) -> Image.Image:
     """Load and resize an icon image from assets."""
@@ -59,14 +55,6 @@ def _draw_icon(
     canvas.paste(error_img, (x, y), error_img)
 
 
-def _strip_known_emoji_tofu(text: str) -> str:
-    if not text:
-        return ""
-    bad_chars = {"✅", "🚨", "⏰", "📢", "❗", "⚠", "⚠️", "\ufe0f"}
-    cleaned = "".join(ch for ch in text if ch not in bad_chars)
-    return " ".join(cleaned.split()).strip()
-
-
 def render_feedback_frame(
     image: Image.Image,
     *,
@@ -104,8 +92,8 @@ def render_feedback_frame(
     icon_y = int(banner_h * 0.08)
     _draw_icon(canvas, kind=kind, x=icon_x, y=icon_y, size=icon_size)
 
-    honk = _assets_font("Honk-Regular-VariableFont_MORF,SHLN.ttf")
-    glitch = _assets_font("RubikGlitch-Regular.ttf")
+    honk = _assets_path("Honk-Regular-VariableFont_MORF,SHLN.ttf")
+    glitch = _assets_path("RubikGlitch-Regular.ttf")
     if kind == "good":
         main_font = _load_font(honk, int(banner_h * 0.36))
         sub_font = _load_font(honk, int(banner_h * 0.18))
@@ -139,7 +127,7 @@ def render_feedback_frame(
     )
 
     # Show the model's feedback message below countdown
-    msg_clean = _strip_known_emoji_tofu((message or "").strip())
+    msg_clean = (message or "").strip()
     if msg_clean:
         # Wrap long messages
         max_chars = 45

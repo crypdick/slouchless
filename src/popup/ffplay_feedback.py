@@ -14,6 +14,21 @@ from src.popup.overlay import render_feedback_frame
 logger = logging.getLogger(__name__)
 
 
+def show_slouch_popup() -> None:
+    """Opens the ffplay feedback popup window."""
+    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        raise RuntimeError(
+            "Popup backend 'ffplay' requires a GUI session (DISPLAY/WAYLAND_DISPLAY). "
+            "Headless mode is not supported."
+        )
+    if not shutil.which("ffplay"):
+        raise RuntimeError(
+            "Popup backend requires `ffplay` (ffmpeg). Install it (ffmpeg/ffplay)."
+        )
+
+    open_feedback_window()
+
+
 @dataclass
 class _FFplayFeedback:
     proc: subprocess.Popen
@@ -23,7 +38,7 @@ _ffplay_feedback: _FFplayFeedback | None = None
 _ffplay_feedback_closed: bool = False
 
 
-def open_feedback_window(*, fps: int) -> None:
+def open_feedback_window() -> None:
     global _ffplay_feedback, _ffplay_feedback_closed
     if _ffplay_feedback is not None and _ffplay_feedback.proc.poll() is None:
         return
@@ -111,7 +126,6 @@ def send_feedback_frame(
     message: str,
     raw_output: str | None = None,
     countdown_secs: float = 0.0,
-    fps: int = 15,
     thumbnail_size: tuple[int, int],
 ) -> bool:
     """

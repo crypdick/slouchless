@@ -12,6 +12,45 @@ from src.debug_images import DebugFrameWriter
 logger = logging.getLogger(__name__)
 
 
+def _parse_response(text: str) -> dict | None:
+    """
+    Parse model response into structured format.
+
+    Returns:
+      - {"type": "yes", "explanation": <str>} if response starts with Yes
+      - {"type": "no", "explanation": <str>} if response starts with No
+      - {"type": "error", "explanation": <str>} if response starts with Error:
+      - None if unparseable
+    """
+    cleaned = text.strip()
+    if not cleaned:
+        return None
+
+    lowered = cleaned.lower()
+    if lowered.startswith("error:"):
+        msg = cleaned.split(":", 1)[1].strip()
+        return {"type": "error", "explanation": msg or "unknown error"}
+
+    # Accept trailing explanation, but first token must be Yes/No.
+    first = lowered.split()[0].strip().strip(".,!?:;\"'()[]{}")
+    if first == "yes":
+        # Extract explanation after "Yes" - look for comma or just take rest
+        rest = cleaned[3:].strip()  # Skip "Yes"
+        if rest.startswith(","):
+            rest = rest[1:].strip()
+        elif rest.startswith("-"):
+            rest = rest[1:].strip()
+        return {"type": "yes", "explanation": rest}
+    if first == "no":
+        rest = cleaned[2:].strip()  # Skip "No"
+        if rest.startswith(","):
+            rest = rest[1:].strip()
+        elif rest.startswith("-"):
+            rest = rest[1:].strip()
+        return {"type": "no", "explanation": rest}
+    return None
+
+
 class AnalysisResult(TypedDict):
     kind: Literal["good", "bad", "error"]
     slouching: bool | None
@@ -62,63 +101,6 @@ class VLLMDetector:
             temperature=settings.temperature, max_tokens=settings.max_tokens
         )
 
-    @staticmethod
-    def _parse_response(text: str) -> dict | None:
-        """
-        Returns:
-          - {"type": "yes", "explanation": <str>} if response starts with Yes
-          - {"type": "no", "explanation": <str>} if response starts with No
-          - {"type": "error", "explanation": <str>} if response starts with Error:
-          - None if unparseable
-        """
-        cleaned = text.strip()
-        if not cleaned:
-            return None
-
-        lowered = cleaned.lower()
-        if lowered.startswith("error:"):
-            msg = cleaned.split(":", 1)[1].strip()
-            return {"type": "error", "explanation": msg or "unknown error"}
-
-        # Accept trailing explanation, but first token must be Yes/No.
-        first = lowered.split()[0].strip().strip(".,!?:;\"'()[]{}")
-        if first == "yes":
-            # Extract explanation after "Yes" - look for comma or just take rest
-            rest = cleaned[3:].strip()  # Skip "Yes"
-            if rest.startswith(","):
-                rest = rest[1:].strip()
-            elif rest.startswith("-"):
-                rest = rest[1:].strip()
-            return {"type": "yes", "explanation": rest}
-        if first == "no":
-            rest = cleaned[2:].strip()  # Skip "No"
-            if rest.startswith(","):
-                rest = rest[1:].strip()
-            elif rest.startswith("-"):
-                rest = rest[1:].strip()
-            return {"type": "no", "explanation": rest}
-        return None
-
-    def is_slouching(
-        self,
-        image: Image.Image,
-        *,
-        frame_id: str | None = None,
-        frame_path: str | None = None,
-        debug_writer: DebugFrameWriter | None = None,
-    ) -> bool:
-        result = self.analyze(
-            image,
-            frame_id=frame_id,
-            frame_path=frame_path,
-            debug_writer=debug_writer,
-        )
-        if result["kind"] == "error":
-            raise RuntimeError(
-                f"{result['message']} (frame_id={frame_id} frame_path={frame_path})"
-            )
-        return result["slouching"] is True
-
     def analyze(
         self,
         image: Image.Image,
@@ -145,7 +127,7 @@ class VLLMDetector:
         generated_text = outputs[0].outputs[0].text.strip()
         logger.info("VLM Output: %s", generated_text.strip())
 
-        parsed = self._parse_response(generated_text)
+        parsed = _parse_response(generated_text)
         if debug_writer is not None:
             debug_writer.log(
                 {
@@ -209,43 +191,6 @@ class OpenAIDetector:
         self.client = OpenAI(api_key=settings.openai_api_key)
 
     @staticmethod
-    def _parse_response(text: str) -> dict | None:
-        """
-        Returns:
-          - {"type": "yes", "explanation": <str>} if response starts with Yes
-          - {"type": "no", "explanation": <str>} if response starts with No
-          - {"type": "error", "explanation": <str>} if response starts with Error:
-          - None if unparseable
-        """
-        cleaned = text.strip()
-        if not cleaned:
-            return None
-
-        lowered = cleaned.lower()
-        if lowered.startswith("error:"):
-            msg = cleaned.split(":", 1)[1].strip()
-            return {"type": "error", "explanation": msg or "unknown error"}
-
-        # Accept trailing explanation, but first token must be Yes/No.
-        first = lowered.split()[0].strip().strip(".,!?:;\"'()[]{}")
-        if first == "yes":
-            # Extract explanation after "Yes" - look for comma or just take rest
-            rest = cleaned[3:].strip()  # Skip "Yes"
-            if rest.startswith(","):
-                rest = rest[1:].strip()
-            elif rest.startswith("-"):
-                rest = rest[1:].strip()
-            return {"type": "yes", "explanation": rest}
-        if first == "no":
-            rest = cleaned[2:].strip()  # Skip "No"
-            if rest.startswith(","):
-                rest = rest[1:].strip()
-            elif rest.startswith("-"):
-                rest = rest[1:].strip()
-            return {"type": "no", "explanation": rest}
-        return None
-
-    @staticmethod
     def _encode_image(image: Image.Image) -> str:
         """Encode PIL Image to base64 string."""
         buffered = io.BytesIO()
@@ -299,7 +244,7 @@ class OpenAIDetector:
                 "raw_output": "",
             }
 
-        parsed = self._parse_response(generated_text)
+        parsed = _parse_response(generated_text)
         if debug_writer is not None:
             debug_writer.log(
                 {
