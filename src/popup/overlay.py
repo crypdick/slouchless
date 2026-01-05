@@ -143,12 +143,31 @@ def render_feedback_frame(
         sub_font = _load_font(glitch, int(banner_h * 0.16))
 
     text_x = icon_x + icon_size + 16
-    text_y = int(banner_h * 0.06)
+    text_y = int(banner_h * 0.02)
     for dx, dy in [(-3, -3), (3, -3), (-3, 3), (3, 3), (2, 2)]:
         draw.text((text_x + dx, text_y + dy), headline, font=main_font, fill=(0, 0, 0))
     draw.text((text_x, text_y), headline, font=main_font, fill=color)
 
-    # Show the model's feedback message prominently
+    # Draw countdown timer below headline
+    countdown_font = _load_font(glitch, int(banner_h * 0.18))
+    countdown_text = f"Next: {countdown_secs:.1f}s"
+    countdown_y = int(banner_h * 0.36)
+
+    # Draw countdown background pill
+    pill_padding = 8
+    bbox = draw.textbbox((text_x, countdown_y), countdown_text, font=countdown_font)
+    pill_rect = [
+        bbox[0] - pill_padding,
+        bbox[1] - pill_padding // 2,
+        bbox[2] + pill_padding,
+        bbox[3] + pill_padding // 2,
+    ]
+    draw.rounded_rectangle(pill_rect, radius=8, fill=(40, 40, 40))
+    draw.text(
+        (text_x, countdown_y), countdown_text, font=countdown_font, fill=(180, 180, 180)
+    )
+
+    # Show the model's feedback message below countdown
     msg_clean = _strip_known_emoji_tofu((message or "").strip())
     if msg_clean:
         # Wrap long messages
@@ -170,37 +189,11 @@ def render_feedback_frame(
             msg_clean = "\n".join(lines[:2])  # Max 2 lines
 
         draw.text(
-            (text_x, int(banner_h * 0.40)),
+            (text_x, int(banner_h * 0.58)),
             msg_clean,
             font=sub_font,
             fill=(255, 255, 255),
         )
-
-    # Draw countdown timer in corner
-    countdown_font = _load_font(glitch, int(banner_h * 0.22))
-    countdown_text = f"Next: {countdown_secs:.1f}s"
-    # Position in top-right corner of banner
-    countdown_x = int(w) - 120
-    countdown_y = int(banner_h * 0.06)
-
-    # Draw countdown background pill
-    pill_padding = 8
-    bbox = draw.textbbox(
-        (countdown_x, countdown_y), countdown_text, font=countdown_font
-    )
-    pill_rect = [
-        bbox[0] - pill_padding,
-        bbox[1] - pill_padding // 2,
-        bbox[2] + pill_padding,
-        bbox[3] + pill_padding // 2,
-    ]
-    draw.rounded_rectangle(pill_rect, radius=8, fill=(40, 40, 40))
-    draw.text(
-        (countdown_x, countdown_y),
-        countdown_text,
-        font=countdown_font,
-        fill=(180, 180, 180),
-    )
 
     buf = io.BytesIO()
     canvas.save(buf, format="JPEG", quality=80)
