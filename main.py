@@ -1,5 +1,4 @@
 import subprocess
-import time
 import threading
 import sys
 from pathlib import Path
@@ -14,16 +13,9 @@ from src.logging_setup import console, log, rainbow
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 
-
-# Global state
-class AppState:
-    def __init__(self):
-        self.enabled = True
-        self.running = True
-        self.lock = threading.Lock()
-
-
-state = AppState()
+enabled_event = threading.Event()
+enabled_event.set()
+stop_event = threading.Event()
 
 
 def monitor_loop(detector):
@@ -36,13 +28,8 @@ def monitor_loop(detector):
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
         debug_writer = DebugFrameWriter(debug_dir, max_frames=settings.debug_max_frames)
 
-    while True:
-        with state.lock:
-            if not state.running:
-                break
-            is_enabled = state.enabled
-
-        if is_enabled:
+    while not stop_event.is_set():
+        if enabled_event.is_set():
             # Capture frame
             log.debug("Capturing frame...")
             image = camera.capture_frame()
@@ -69,25 +56,21 @@ def monitor_loop(detector):
             )
 
             if is_slouching:
-                log.warning("SLOUCH DETECTED!")
+                log.error("SLOUCH DETECTED!")
                 from src.popup.feedback_manager import FeedbackManager
 
                 manager = FeedbackManager(detector, debug_writer)
 
                 def _should_continue():
-                    with state.lock:
-                        return state.running
+                    return not stop_event.is_set()
 
                 manager.run(camera, image, _should_continue)
             else:
                 console.log(rainbow("✓ Posture OK!"))
 
-        # Sleep for configured interval
-        for _ in range(settings.check_interval_seconds):
-            with state.lock:
-                if not state.running:
-                    break
-            time.sleep(1)
+        # Sleep for configured interval, but wake promptly on quit.
+        if stop_event.wait(timeout=settings.check_interval_seconds):
+            break
 
     log.info("Releasing camera...")
     camera.release()
@@ -95,16 +78,17 @@ def monitor_loop(detector):
 
 
 def on_toggle(enabled):
-    with state.lock:
-        state.enabled = enabled
+    if enabled:
+        enabled_event.set()
+    else:
+        enabled_event.clear()
     status = "Enabled" if enabled else "Disabled"
     log.info(f"Monitoring {status}")
 
 
 def on_quit():
     log.info("Quitting application...")
-    with state.lock:
-        state.running = False
+    stop_event.set()
 
 
 def main():

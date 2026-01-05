@@ -122,21 +122,17 @@ class VLLMDetector:
         log.debug(f"Detector settings:\n{format_settings_for_log(settings)}")
 
         # Initialize vLLM
-        try:
-            self.llm = LLM(
-                model=self.model_name,
-                trust_remote_code=True,
-                gpu_memory_utilization=settings.gpu_memory_utilization,
-                quantization=settings.quantization,
-                enforce_eager=settings.enforce_eager,
-                max_num_seqs=settings.max_num_seqs,
-                max_model_len=2048,
-                distributed_executor_backend=settings.distributed_executor_backend,
-            )
-            log.debug("vLLM LLM object created successfully.")
-        except Exception as e:
-            log.exception(f"CRITICAL ERROR during vLLM init: {e}")
-            raise
+        self.llm = LLM(
+            model=self.model_name,
+            trust_remote_code=True,
+            gpu_memory_utilization=settings.gpu_memory_utilization,
+            quantization=settings.quantization,
+            enforce_eager=settings.enforce_eager,
+            max_num_seqs=settings.max_num_seqs,
+            max_model_len=2048,
+            distributed_executor_backend=settings.distributed_executor_backend,
+        )
+        log.debug("vLLM LLM object created successfully.")
 
         self.sampling_params = SamplingParams(
             temperature=settings.temperature, max_tokens=settings.max_tokens

@@ -5,7 +5,7 @@ from typing import Callable
 from PIL import Image
 
 from src.settings import settings
-from src.popup.ffplay_feedback import send_feedback_frame, show_slouch_popup
+from src.popup.ffplay_feedback import open_feedback_window, send_feedback_frame
 from src.logging_setup import log
 
 
@@ -27,7 +27,7 @@ class FeedbackManager:
         Runs the feedback loop, showing the ffplay popup and running inference
         continuously until closed or stopped.
         """
-        show_slouch_popup()
+        open_feedback_window()
 
         overlay_lock = threading.Lock()
         latest_frame = {"img": initial_image}

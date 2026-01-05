@@ -25,10 +25,7 @@ def _load_icon_image(name: str, size: int) -> Image.Image:
 def _load_font(path: Path, px: int) -> ImageFont.ImageFont:
     """Load a TrueType font."""
     px = int(max(12, px))
-    try:
-        return ImageFont.truetype(str(path), px)
-    except Exception:
-        return ImageFont.load_default()
+    return ImageFont.truetype(str(path), px)
 
 
 def _draw_icon(

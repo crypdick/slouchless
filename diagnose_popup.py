@@ -33,8 +33,8 @@ def main(
     from src.settings import settings
     from src.popup.ffplay_feedback import (
         close_feedback_window,
+        open_feedback_window,
         send_feedback_frame,
-        show_slouch_popup,
     )
 
     cam = None
@@ -42,7 +42,7 @@ def main(
         cam = Camera()
         console.print(f"Camera: {cam.describe()}")
 
-        show_slouch_popup()
+        open_feedback_window()
 
         deadline = time.time() + auto_close if auto_close > 0 else None
         frame_dt = 1.0 / settings.popup_preview_fps

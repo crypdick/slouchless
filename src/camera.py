@@ -58,9 +58,8 @@ class Camera:
                 matches.append((idx, name))
 
         if not matches:
-            available = cls._list_linux_video_devices()
             available_str = (
-                ", ".join([f"{i}:{n}" for i, n in available]) or "(none found)"
+                ", ".join([f"{i}:{n}" for i, n in devices]) or "(none found)"
             )
             raise RuntimeError(
                 f"Could not find a webcam matching SLOUCHLESS_CAMERA_NAME={preferred_name!r}. "
