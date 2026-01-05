@@ -36,5 +36,9 @@ Configuration is managed via `pydantic-settings` (`src/settings.py`). You can se
 | `SLOUCHLESS_GPU_MEMORY_UTILIZATION` | GPU memory utilization (0.0-1.0) |
 | `SLOUCHLESS_QUANTIZATION` | Quantization method |
 | `SLOUCHLESS_CHECK_INTERVAL_SECONDS` | Seconds between checks |
-| `SLOUCHLESS_POPUP_BACKEND` | `notify` or `tk` |
+| `SLOUCHLESS_POPUP_BACKEND` | `auto`, `notify`, `tk`, or `ffplay` (default: `auto`). Recommended on Linux: `ffplay` for a real live window. Note: `notify` may only show a small icon depending on your notification daemon. |
+| `SLOUCHLESS_TK_POPUP_MODE` | `live` or `static` (default: `live`). `live` shows a webcam preview until you close the window. |
+| `SLOUCHLESS_TK_POPUP_BLOCKING` | `true`/`false` (default: `true`). If true, monitoring pauses while the popup is open. |
+| `SLOUCHLESS_TK_POPUP_UPDATE_MS` | Update interval for the live preview (default: `50`). |
+| `SLOUCHLESS_TK_POPUP_AUTO_CLOSE_SECONDS` | If set to >0, auto-closes the popup after N seconds (default: `0`, disabled). |
 

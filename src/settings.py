@@ -100,7 +100,27 @@ class Settings(BaseSettings):
 
     # UI
     popup_thumbnail_size: tuple[int, int] = Field(default=(600, 600))
-    popup_backend: Literal["notify", "tk"] = Field(default="notify")
+    popup_backend: Literal["auto", "notify", "tk", "ffplay"] = Field(default="auto")
+    tk_popup_mode: Literal["live", "static"] = Field(
+        default="live",
+        description="For popup_backend=tk: show a live webcam preview or a static snapshot.",
+    )
+    tk_popup_update_ms: int = Field(
+        default=50,
+        ge=10,
+        le=2000,
+        description="Update interval for live Tk popup preview.",
+    )
+    tk_popup_blocking: bool = Field(
+        default=True,
+        description="If true, pause monitoring while the Tk popup is open.",
+    )
+    tk_popup_auto_close_seconds: int = Field(
+        default=0,
+        ge=0,
+        le=3600,
+        description="If >0, auto-close the Tk popup after N seconds (mainly for testing).",
+    )
 
     @field_validator("camera_resize_to", mode="before")
     @classmethod

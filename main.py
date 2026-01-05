@@ -4,7 +4,12 @@ import sys
 
 from src.camera import Camera
 from src.detector import SlouchDetector
-from src.ui import SlouchAppUI, show_slouch_popup
+from src.ui import (
+    SlouchAppUI,
+    show_slouch_popup,
+    init_popup_worker,
+    shutdown_popup_worker,
+)
 from src.settings import settings
 from src.debug_images import DebugFrameWriter, clear_debug_dir, resolve_debug_dir
 
@@ -65,8 +70,20 @@ def monitor_loop(detector):
 
             if is_slouching:
                 print("SLOUCH DETECTED!")
-                # Show popup
-                show_slouch_popup(image)
+                # If the popup opens the webcam (ffplay or Tk live), release our capture
+                # first to avoid device contention; then reopen afterwards.
+                will_use_webcam = settings.popup_backend in ("tk", "ffplay", "auto")
+                if will_use_webcam:
+                    camera.release()
+
+                show_slouch_popup(
+                    image,
+                    camera_device_id=camera.device_id,
+                    camera_name=camera.device_name,
+                )
+
+                if will_use_webcam:
+                    camera = Camera()
             else:
                 print("Posture OK.")
 
@@ -93,6 +110,7 @@ def on_quit():
     print("Quitting application...")
     with state.lock:
         state.running = False
+    shutdown_popup_worker()
 
 
 def main():
@@ -107,6 +125,17 @@ def main():
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
         clear_debug_dir(debug_dir)
         print(f"DEBUG: Cleared debug frames dir: {debug_dir}")
+
+    # Start popup worker EARLY (before any threads/UI) to avoid xcb/X11 crashes when
+    # opening Tk windows from a threaded app.
+    if settings.popup_backend in ("tk", "auto"):
+        import os
+
+        has_display = bool(
+            os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+        )
+        if settings.popup_backend == "tk" or has_display:
+            init_popup_worker()
 
     # Initialize Detector in MAIN thread to avoid multiprocessing/GIL deadlocks with vLLM
     print("Initializing Slouch Detector (Main Thread)...")
