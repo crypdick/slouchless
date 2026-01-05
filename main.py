@@ -27,9 +27,6 @@ state = AppState()
 
 
 def monitor_loop(detector):
-    log.debug("monitor_loop started")
-
-    # Initialize Camera
     from src.camera import Camera
 
     camera = Camera()
@@ -47,7 +44,7 @@ def monitor_loop(detector):
 
         if is_enabled:
             # Capture frame
-            log.info("Capturing frame...")
+            log.debug("Capturing frame...")
             image = camera.capture_frame()
             saved = None
             if debug_writer is not None:
@@ -63,7 +60,7 @@ def monitor_loop(detector):
                 )
 
             # Detect
-            log.info("Analyzing...")
+            log.debug("Analyzing...")
             is_slouching = detector.is_slouching(
                 image,
                 frame_id=(saved.frame_id if saved else None),
@@ -139,11 +136,11 @@ def main():
         log.debug(f"Cleared debug frames dir: {debug_dir}")
 
     # Initialize Detector in MAIN thread to avoid multiprocessing/GIL deadlocks with vLLM
-    log.info("Initializing Slouch Detector (Main Thread)...")
+    log.debug("Initializing Slouch Detector (Main Thread)...")
     from src.detector import SlouchDetector
 
     detector = SlouchDetector()
-    log.info("Detector initialized in Main Thread.")
+    log.debug("Detector initialized in Main Thread.")
 
     # Start the monitoring thread, passing the initialized detector
     monitor_thread = threading.Thread(
@@ -152,7 +149,7 @@ def main():
     monitor_thread.start()
 
     # Start the UI (Blocking)
-    from src.ui import SlouchAppUI
+    from src.tray import SlouchAppUI
 
     ui = SlouchAppUI(toggle_callback=on_toggle, quit_callback=on_quit)
     try:

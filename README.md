@@ -24,7 +24,7 @@ An application that uses a webcam and vision-language model (VLM) to detect slou
 1. Create a `.env` file in the project root:
    ```bash
    OPENAI_API_KEY=your_api_key_here
-   DETECTOR_TYPE=openai
+   SLOUCHLESS_DETECTOR_TYPE=openai
    ```
 
 2. Run the application:
@@ -37,7 +37,7 @@ An application that uses a webcam and vision-language model (VLM) to detect slou
 1. Ensure you have an NVIDIA GPU with sufficient VRAM
 2. Optionally configure the model in `.env`:
    ```bash
-   DETECTOR_TYPE=vllm
+   SLOUCHLESS_DETECTOR_TYPE=vllm
    SLOUCHLESS_MODEL_NAME=ybelkada/llava-1.5-7b-hf-awq
    ```
 
@@ -54,16 +54,16 @@ Configuration is managed via `pydantic-settings` (`src/settings.py`). You can se
 
 | Variable | Description |
 |----------|-------------|
-| `DETECTOR_TYPE` or `SLOUCHLESS_DETECTOR_TYPE` | Detector backend: `vllm` (local models) or `openai` (OpenAI API). Default: `vllm` |
+| `SLOUCHLESS_DETECTOR_TYPE` | Detector backend: `vllm` (local models) or `openai` (OpenAI API). Default: `vllm` |
 
-### OpenAI Settings (when `DETECTOR_TYPE=openai`)
+### OpenAI Settings (when `SLOUCHLESS_DETECTOR_TYPE=openai`)
 
 | Variable | Description |
 |----------|-------------|
 | `OPENAI_API_KEY` | Your OpenAI API key (required for OpenAI detector) |
 | `SLOUCHLESS_OPENAI_MODEL` | OpenAI model to use (default: `gpt-4o`) |
 
-### vLLM Settings (when `DETECTOR_TYPE=vllm`)
+### vLLM Settings (when `SLOUCHLESS_DETECTOR_TYPE=vllm`)
 
 | Variable | Description |
 |----------|-------------|

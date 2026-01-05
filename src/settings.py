@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, field_validator, AliasChoices
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -72,7 +72,6 @@ class Settings(BaseSettings):
     detector_type: Literal["vllm", "openai"] = Field(
         default="vllm",
         description="Type of detector to use: 'vllm' for local models or 'openai' for OpenAI API",
-        validation_alias=AliasChoices("SLOUCHLESS_DETECTOR_TYPE", "DETECTOR_TYPE"),
     )
     model_name: str = Field(default="ybelkada/llava-1.5-7b-hf-awq")
     gpu_memory_utilization: float = Field(default=0.7, ge=0.0, le=1.0)
@@ -95,9 +94,9 @@ class Settings(BaseSettings):
     )
 
     # OpenAI settings
-    openai_api_key: str = Field(
-        default="",
-        description="OpenAI API key (loaded from OPENAI_API_KEY env var or .env file)",
+    openai_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="OpenAI API key (set via OPENAI_API_KEY or in .env)",
         validation_alias="OPENAI_API_KEY",
     )
     openai_model: str = Field(

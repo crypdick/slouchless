@@ -55,6 +55,50 @@ class AnalysisResult(TypedDict):
     raw_output: str
 
 
+def _analysis_result_from_parsed(
+    parsed: dict | None, raw_output: str
+) -> AnalysisResult:
+    if parsed is None:
+        return {
+            "kind": "error",
+            "slouching": None,
+            "message": "Unparseable model output",
+            "raw_output": raw_output,
+        }
+
+    if parsed.get("type") == "error":
+        return {
+            "kind": "error",
+            "slouching": None,
+            "message": str(parsed.get("explanation") or "unknown error"),
+            "raw_output": raw_output,
+        }
+
+    if parsed.get("type") == "yes":
+        explanation = str(parsed.get("explanation") or "").strip()
+        return {
+            "kind": "bad",
+            "slouching": True,
+            "message": explanation if explanation else "fix your posture!",
+            "raw_output": raw_output,
+        }
+
+    if parsed.get("type") == "no":
+        return {
+            "kind": "good",
+            "slouching": False,
+            "message": "good posture!",
+            "raw_output": raw_output,
+        }
+
+    return {
+        "kind": "error",
+        "slouching": None,
+        "message": "Unparseable model output",
+        "raw_output": raw_output,
+    }
+
+
 class DetectorBackend(Protocol):
     """Protocol for slouch detection backends."""
 
@@ -122,7 +166,7 @@ class VLLMDetector:
             raise RuntimeError(f"vLLM returned empty text for frame_id={frame_id}")
 
         generated_text = outputs[0].outputs[0].text.strip()
-        log.info(f"VLM Output: {generated_text.strip()}")
+        log.debug(f"VLM Output: {generated_text.strip()}")
 
         parsed = _parse_response(generated_text)
         if debug_writer is not None:
@@ -137,38 +181,7 @@ class VLLMDetector:
                     "parsed": parsed,
                 }
             )
-
-        if parsed is None:
-            return {
-                "kind": "error",
-                "slouching": None,
-                "message": "Unparseable model output",
-                "raw_output": generated_text,
-            }
-        if parsed["type"] == "error":
-            return {
-                "kind": "error",
-                "slouching": None,
-                "message": parsed["explanation"] or "unknown error",
-                "raw_output": generated_text,
-            }
-
-        if parsed["type"] == "yes":
-            # Slouching detected - show the explanation as the message
-            explanation = parsed["explanation"]
-            return {
-                "kind": "bad",
-                "slouching": True,
-                "message": explanation if explanation else "fix your posture!",
-                "raw_output": generated_text,
-            }
-        # Good posture
-        return {
-            "kind": "good",
-            "slouching": False,
-            "message": "good posture!",
-            "raw_output": generated_text,
-        }
+        return _analysis_result_from_parsed(parsed, generated_text)
 
 
 class OpenAIDetector:
@@ -176,8 +189,9 @@ class OpenAIDetector:
         from openai import OpenAI
 
         self.model_name = settings.openai_model
+        api_key = settings.openai_api_key.get_secret_value()
 
-        if not settings.openai_api_key:
+        if not api_key:
             raise ValueError(
                 "OpenAI API key not found. Please set OPENAI_API_KEY in your .env file."
             )
@@ -185,7 +199,7 @@ class OpenAIDetector:
         log.info(f"Initializing OpenAI detector with model: {self.model_name}")
         log.debug(f"Detector settings:\n{format_settings_for_log(settings)}")
 
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        self.client = OpenAI(api_key=api_key)
 
     @staticmethod
     def _encode_image(image: Image.Image) -> str:
@@ -230,7 +244,7 @@ class OpenAIDetector:
             )
 
             generated_text = response.choices[0].message.content.strip()
-            log.info(f"OpenAI Output: {generated_text.strip()}")
+            log.debug(f"OpenAI Output: {generated_text.strip()}")
 
         except Exception as e:
             log.exception(f"Error calling OpenAI API: {e}")
@@ -254,38 +268,7 @@ class OpenAIDetector:
                     "parsed": parsed,
                 }
             )
-
-        if parsed is None:
-            return {
-                "kind": "error",
-                "slouching": None,
-                "message": "Unparseable model output",
-                "raw_output": generated_text,
-            }
-        if parsed["type"] == "error":
-            return {
-                "kind": "error",
-                "slouching": None,
-                "message": parsed["explanation"] or "unknown error",
-                "raw_output": generated_text,
-            }
-
-        if parsed["type"] == "yes":
-            # Slouching detected - show the explanation as the message
-            explanation = parsed["explanation"]
-            return {
-                "kind": "bad",
-                "slouching": True,
-                "message": explanation if explanation else "fix your posture!",
-                "raw_output": generated_text,
-            }
-        # Good posture
-        return {
-            "kind": "good",
-            "slouching": False,
-            "message": "good posture!",
-            "raw_output": generated_text,
-        }
+        return _analysis_result_from_parsed(parsed, generated_text)
 
 
 class SlouchDetector:
