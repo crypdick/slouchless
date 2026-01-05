@@ -2,7 +2,6 @@ import subprocess
 import time
 import threading
 import sys
-import logging
 from pathlib import Path
 
 from pyfiglet import figlet_format
@@ -11,11 +10,9 @@ from rich_pixels import Pixels
 from src.settings import settings
 from src.settings import format_settings_for_log
 from src.debug_images import DebugFrameWriter, clear_debug_dir, resolve_debug_dir
-from src.logging_setup import configure_logging, console, rainbow
+from src.logging_setup import console, log, rainbow
 
 ASSETS_DIR = Path(__file__).parent / "assets"
-
-logger = logging.getLogger(__name__)
 
 
 # Global state
@@ -30,13 +27,13 @@ state = AppState()
 
 
 def monitor_loop(detector):
-    logger.debug("monitor_loop started")
+    log.debug("monitor_loop started")
 
     # Initialize Camera
     from src.camera import Camera
 
     camera = Camera()
-    logger.info("Using Camera: %s", camera.describe())
+    log.info(f"Using Camera: {camera.describe()}")
     debug_writer = None
     if settings.debug_save_frames:
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
@@ -50,7 +47,7 @@ def monitor_loop(detector):
 
         if is_enabled:
             # Capture frame
-            logger.info("Capturing frame...")
+            log.info("Capturing frame...")
             image = camera.capture_frame()
             saved = None
             if debug_writer is not None:
@@ -66,7 +63,7 @@ def monitor_loop(detector):
                 )
 
             # Detect
-            logger.info("Analyzing...")
+            log.info("Analyzing...")
             is_slouching = detector.is_slouching(
                 image,
                 frame_id=(saved.frame_id if saved else None),
@@ -75,7 +72,7 @@ def monitor_loop(detector):
             )
 
             if is_slouching:
-                logger.info("SLOUCH DETECTED!")
+                log.warning("SLOUCH DETECTED!")
                 from src.popup.feedback_manager import FeedbackManager
 
                 manager = FeedbackManager(detector, debug_writer)
@@ -86,7 +83,7 @@ def monitor_loop(detector):
 
                 manager.run(camera, image, _should_continue)
             else:
-                console.print(rainbow("✓ Posture OK!"))
+                console.log(rainbow("✓ Posture OK!"))
 
         # Sleep for configured interval
         for _ in range(settings.check_interval_seconds):
@@ -95,26 +92,26 @@ def monitor_loop(detector):
                     break
             time.sleep(1)
 
-    logger.info("Releasing camera...")
+    log.info("Releasing camera...")
     camera.release()
-    logger.info("Monitor loop exited.")
+    log.info("Monitor loop exited.")
 
 
 def on_toggle(enabled):
     with state.lock:
         state.enabled = enabled
     status = "Enabled" if enabled else "Disabled"
-    logger.info("Monitoring %s", status)
+    log.info(f"Monitoring {status}")
 
 
 def on_quit():
-    logger.info("Quitting application...")
+    log.info("Quitting application...")
     with state.lock:
         state.running = False
 
 
 def main():
-    configure_logging(settings.log_level)
+    log.set_level(settings.log_level)
 
     # Print the bonk doge and ASCII banner at startup
     bonk_path = ASSETS_DIR / "bonk.webp"
@@ -124,7 +121,7 @@ def main():
 
     banner = figlet_format("Slouchless", font="slant")
     subprocess.run(["lolcat"], input=banner, text=True)
-    logger.info("Settings:\n%s", format_settings_for_log(settings))
+    log.info(f"Settings:\n{format_settings_for_log(settings)}")
 
     # Ray can emit noisy (and typically harmless) errors if its internal OpenTelemetry
     # metrics exporter agent can't start/connect. We don't use Ray metrics in Slouchless,
@@ -139,14 +136,14 @@ def main():
     if settings.debug_clear_frames_on_start:
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
         clear_debug_dir(debug_dir)
-        logger.debug("Cleared debug frames dir: %s", debug_dir)
+        log.debug(f"Cleared debug frames dir: {debug_dir}")
 
     # Initialize Detector in MAIN thread to avoid multiprocessing/GIL deadlocks with vLLM
-    logger.info("Initializing Slouch Detector (Main Thread)...")
+    log.info("Initializing Slouch Detector (Main Thread)...")
     from src.detector import SlouchDetector
 
     detector = SlouchDetector()
-    logger.info("Detector initialized in Main Thread.")
+    log.info("Detector initialized in Main Thread.")
 
     # Start the monitoring thread, passing the initialized detector
     monitor_thread = threading.Thread(

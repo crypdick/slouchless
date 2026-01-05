@@ -1,4 +1,3 @@
-import logging
 import threading
 import time
 from typing import Callable
@@ -7,8 +6,7 @@ from PIL import Image
 
 from src.settings import settings
 from src.popup.ffplay_feedback import send_feedback_frame, show_slouch_popup
-
-logger = logging.getLogger(__name__)
+from src.logging_setup import log
 
 
 class FeedbackManager:
@@ -117,6 +115,6 @@ class FeedbackManager:
                 time.sleep(self.pump_dt)
 
         except Exception as e:
-            logger.exception("Popup handling failed: %s", e)
+            log.exception(f"Popup handling failed: {e}")
         finally:
             stop_inference.set()

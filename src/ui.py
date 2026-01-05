@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 """
-This module intentionally stays thin and orchestration-focused.
+Thin module to orchestrate the UI.
 
 UI rendering (tray icon drawing, overlay rendering, backend implementations) lives in
 dedicated modules under `src.tray` and `src.popup`.

@@ -1,4 +1,3 @@
-import logging
 import base64
 import io
 from typing import Literal, TypedDict, Protocol
@@ -7,9 +6,7 @@ from PIL import Image
 from src.settings import settings
 from src.settings import format_settings_for_log
 from src.debug_images import DebugFrameWriter
-
-
-logger = logging.getLogger(__name__)
+from src.logging_setup import log
 
 
 def _parse_response(text: str) -> dict | None:
@@ -77,8 +74,8 @@ class VLLMDetector:
 
         self.model_name = settings.model_name
 
-        logger.info("Initializing vLLM with model: %s", self.model_name)
-        logger.debug("Detector settings:\n%s", format_settings_for_log(settings))
+        log.info(f"Initializing vLLM with model: {self.model_name}")
+        log.debug(f"Detector settings:\n{format_settings_for_log(settings)}")
 
         # Initialize vLLM
         try:
@@ -92,9 +89,9 @@ class VLLMDetector:
                 max_model_len=2048,
                 distributed_executor_backend=settings.distributed_executor_backend,
             )
-            logger.debug("vLLM LLM object created successfully.")
+            log.debug("vLLM LLM object created successfully.")
         except Exception as e:
-            logger.exception("CRITICAL ERROR during vLLM init: %s", e)
+            log.exception(f"CRITICAL ERROR during vLLM init: {e}")
             raise
 
         self.sampling_params = SamplingParams(
@@ -125,7 +122,7 @@ class VLLMDetector:
             raise RuntimeError(f"vLLM returned empty text for frame_id={frame_id}")
 
         generated_text = outputs[0].outputs[0].text.strip()
-        logger.info("VLM Output: %s", generated_text.strip())
+        log.info(f"VLM Output: {generated_text.strip()}")
 
         parsed = _parse_response(generated_text)
         if debug_writer is not None:
@@ -185,8 +182,8 @@ class OpenAIDetector:
                 "OpenAI API key not found. Please set OPENAI_API_KEY in your .env file."
             )
 
-        logger.info("Initializing OpenAI detector with model: %s", self.model_name)
-        logger.debug("Detector settings:\n%s", format_settings_for_log(settings))
+        log.info(f"Initializing OpenAI detector with model: {self.model_name}")
+        log.debug(f"Detector settings:\n{format_settings_for_log(settings)}")
 
         self.client = OpenAI(api_key=settings.openai_api_key)
 
@@ -233,10 +230,10 @@ class OpenAIDetector:
             )
 
             generated_text = response.choices[0].message.content.strip()
-            logger.info("OpenAI Output: %s", generated_text.strip())
+            log.info(f"OpenAI Output: {generated_text.strip()}")
 
         except Exception as e:
-            logger.exception("Error calling OpenAI API: %s", e)
+            log.exception(f"Error calling OpenAI API: {e}")
             return {
                 "kind": "error",
                 "slouching": None,

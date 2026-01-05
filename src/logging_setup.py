@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import logging
 from random import randint
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.highlighter import Highlighter
-from rich.logging import RichHandler
+
+if TYPE_CHECKING:
+    from rich.console import RenderableType
 
 console = Console()
 
@@ -18,43 +20,56 @@ class RainbowHighlighter(Highlighter):
 
 rainbow = RainbowHighlighter()
 
-_LEVELS: dict[str, int] = {
-    "debug": logging.DEBUG,
-    "info": logging.INFO,
-    "warning": logging.WARNING,
-    "warn": logging.WARNING,
-    "error": logging.ERROR,
-    "critical": logging.CRITICAL,
+# Log level ordering
+_LEVEL_ORDER = {
+    "DEBUG": 0,
+    "INFO": 1,
+    "WARNING": 2,
+    "ERROR": 3,
+    "CRITICAL": 4,
 }
 
 
-def configure_logging(level: str | int = "info") -> None:
-    """
-    Idempotent-ish logging setup using Rich for console output.
-    Safe to call early in main().
-    """
-    if isinstance(level, int):
-        resolved = level
-    else:
-        resolved = _LEVELS.get(str(level).strip().lower(), logging.INFO)
+class Logger:
+    """Simple level-aware logger using rich console."""
 
-    # If someone already configured handlers, don't clobber formatting; just set levels.
-    root = logging.getLogger()
-    if root.handlers:
-        root.setLevel(resolved)
-        return
+    def __init__(self, console: Console):
+        self._console = console
+        self._level = "INFO"
 
-    logging.basicConfig(
-        level=resolved,
-        format="%(message)s",
-        datefmt="[%X]",
-        handlers=[
-            RichHandler(
-                console=console,
-                rich_tracebacks=True,
-                tracebacks_show_locals=True,
-                show_time=True,
-                show_path=True,
+    def set_level(self, level: str) -> None:
+        self._level = level.upper()
+
+    def _should_log(self, level: str) -> bool:
+        return _LEVEL_ORDER.get(level, 1) >= _LEVEL_ORDER.get(self._level, 1)
+
+    def debug(self, message: RenderableType, **kwargs) -> None:
+        if self._should_log("DEBUG"):
+            self._console.log(f"[dim]{message}[/dim]", **kwargs)
+
+    def info(self, message: RenderableType, **kwargs) -> None:
+        if self._should_log("INFO"):
+            self._console.log(message, **kwargs)
+
+    def warning(self, message: RenderableType, **kwargs) -> None:
+        if self._should_log("WARNING"):
+            self._console.log(f"[yellow]{message}[/yellow]", **kwargs)
+
+    def error(self, message: RenderableType, **kwargs) -> None:
+        if self._should_log("ERROR"):
+            self._console.log(f"[bold red]{message}[/bold red]", **kwargs)
+
+    def critical(self, message: RenderableType, **kwargs) -> None:
+        if self._should_log("CRITICAL"):
+            self._console.log(
+                f"[bold white on red]{message}[/bold white on red]", **kwargs
             )
-        ],
-    )
+
+    def exception(self, message: RenderableType = "", **kwargs) -> None:
+        """Log an error message and print the current exception traceback."""
+        if message:
+            self.error(message, **kwargs)
+        self._console.print_exception(show_locals=True)
+
+
+log = Logger(console)

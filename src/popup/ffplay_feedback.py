@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import shutil
 import subprocess
@@ -10,8 +9,7 @@ from dataclasses import dataclass
 from PIL import Image
 
 from src.popup.overlay import render_feedback_frame
-
-logger = logging.getLogger(__name__)
+from src.logging_setup import log
 
 
 def show_slouch_popup() -> None:
@@ -97,7 +95,7 @@ def open_feedback_window() -> None:
             pass
         raise RuntimeError(f"ffplay exited immediately:\n{err}".rstrip())
 
-    logger.debug("ffplay feedback started (pid=%s)", p.pid)
+    log.debug(f"ffplay feedback started (pid={p.pid})")
     _ffplay_feedback = _FFplayFeedback(proc=p)
 
 

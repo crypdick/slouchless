@@ -109,7 +109,7 @@ def render_feedback_frame(
 
     # Draw countdown timer below headline
     countdown_font = _load_font(glitch, int(banner_h * 0.18))
-    countdown_text = f"Next: {countdown_secs:.1f}s"
+    countdown_text = f"{countdown_secs:.1f}s"
     countdown_y = int(banner_h * 0.36)
 
     # Draw countdown background pill
