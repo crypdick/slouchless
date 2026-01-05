@@ -1,13 +1,19 @@
+import subprocess
 import time
 import threading
 import sys
 import logging
+from pathlib import Path
+
+from pyfiglet import figlet_format
+from rich_pixels import Pixels
 
 from src.settings import settings
 from src.settings import format_settings_for_log
 from src.debug_images import DebugFrameWriter, clear_debug_dir, resolve_debug_dir
-from src.logging_setup import configure_logging
+from src.logging_setup import configure_logging, console, rainbow
 
+ASSETS_DIR = Path(__file__).parent / "assets"
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +86,7 @@ def monitor_loop(detector):
 
                 manager.run(camera, image, _should_continue)
             else:
-                logger.info("Posture OK.")
+                console.print(rainbow("✓ Posture OK!"))
 
         # Sleep for configured interval
         for _ in range(settings.check_interval_seconds):
@@ -109,7 +115,15 @@ def on_quit():
 
 def main():
     configure_logging(settings.log_level)
-    logger.info("Starting Slouchless...")
+
+    # Print the bonk doge and ASCII banner at startup
+    bonk_path = ASSETS_DIR / "bonk.webp"
+    if bonk_path.exists():
+        pixels = Pixels.from_image_path(bonk_path, resize=(40, 20))
+        console.print(pixels)
+
+    banner = figlet_format("Slouchless", font="slant")
+    subprocess.run(["lolcat"], input=banner, text=True)
     logger.info("Settings:\n%s", format_settings_for_log(settings))
 
     # Ray can emit noisy (and typically harmless) errors if its internal OpenTelemetry

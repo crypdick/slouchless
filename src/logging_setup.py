@@ -1,7 +1,22 @@
 from __future__ import annotations
 
 import logging
+from random import randint
 
+from rich.console import Console
+from rich.highlighter import Highlighter
+from rich.logging import RichHandler
+
+console = Console()
+
+
+class RainbowHighlighter(Highlighter):
+    def highlight(self, text):
+        for index in range(len(text)):
+            text.stylize(f"color({randint(16, 255)})", index, index + 1)
+
+
+rainbow = RainbowHighlighter()
 
 _LEVELS: dict[str, int] = {
     "debug": logging.DEBUG,
@@ -15,7 +30,8 @@ _LEVELS: dict[str, int] = {
 
 def configure_logging(level: str | int = "info") -> None:
     """
-    Idempotent-ish logging setup. Safe to call early in main().
+    Idempotent-ish logging setup using Rich for console output.
+    Safe to call early in main().
     """
     if isinstance(level, int):
         resolved = level
@@ -30,6 +46,15 @@ def configure_logging(level: str | int = "info") -> None:
 
     logging.basicConfig(
         level=resolved,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[
+            RichHandler(
+                console=console,
+                rich_tracebacks=True,
+                tracebacks_show_locals=True,
+                show_time=True,
+                show_path=True,
+            )
+        ],
     )
