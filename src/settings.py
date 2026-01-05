@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     camera_grab_frames: int = Field(default=2, ge=0)
 
     # Detector / VLM
+    detector_type: Literal["vllm", "openai"] = Field(
+        default="vllm",
+        description="Type of detector to use: 'vllm' for local models or 'openai' for OpenAI API",
+        validation_alias=AliasChoices("SLOUCHLESS_DETECTOR_TYPE", "DETECTOR_TYPE"),
+    )
     model_name: str = Field(default="ybelkada/llava-1.5-7b-hf-awq")
     gpu_memory_utilization: float = Field(default=0.7, ge=0.0, le=1.0)
     quantization: str = Field(default="awq_marlin")
@@ -76,29 +81,28 @@ class Settings(BaseSettings):
     enforce_eager: bool = Field(default=True)
     distributed_executor_backend: Literal["ray", "mp"] = Field(default="ray")
     max_tokens: int = Field(default=80, ge=1)
-    temperature: float = Field(default=0.0, ge=0.0)
+    temperature: float = Field(default=0.2, ge=0.0)
     prompt: str = Field(
         default=(
-            "USER: <image>\n"
-            "Check this person's posture. Say 'Yes' with advice if ANY of these are true:\n"
-            "- Head/neck leaning forward (ear ahead of shoulder)\n"
+            "Is this person slouching? Signs of bad posture:\n"
+            "- Head noticeably forward of shoulders\n"
             "- Shoulders rounded forward\n"
-            "- Upper back curved/hunched\n"
-            "- Spine not straight\n\n"
-            "Say 'No' ONLY if spine is reasonably straight with head directly over shoulders. Posture doesn't have to be perfect, we are just alerting if the person has obviously bad posture.\n\n"
-            "FORMAT: Start with Yes/No/Error\n"
-            "- Yes, <what to fix>\n"
-            "- No\n"
-            "- Error: <reason>\n\n"
-            "EXAMPLES (you don't need to use these exact reasons):\n"
-            "- Yes, pull shoulders back under your ears\n"
-            "- Yes, tuck chin - head is forward\n"
-            "- Yes, straighten upper back\n"
-            "- No\n"
-            "- Error: person not in frame\n"
-            "- Error: image is completely black\n\n"
-            "ASSISTANT:"
-        )
+            "- Back hunched or curved\n\n"
+            "Say Yes if posture is clearly bad. Say No if posture looks reasonable (doesn't need to be perfect).\n\n"
+            'Format: "Yes, <how to fix>" or "No" or "Error: <reason>" if you can\'t see the person.'
+        ),
+        description="Shared prompt used by both vLLM and OpenAI detectors",
+    )
+
+    # OpenAI settings
+    openai_api_key: str = Field(
+        default="",
+        description="OpenAI API key (loaded from OPENAI_API_KEY env var or .env file)",
+        validation_alias="OPENAI_API_KEY",
+    )
+    openai_model: str = Field(
+        default="gpt-4o",
+        description="OpenAI model to use for vision analysis",
     )
 
     # App
@@ -142,7 +146,7 @@ class Settings(BaseSettings):
             raise ValueError("popup_thumbnail_size cannot be empty")
         return parsed
 
-    @field_validator("distributed_executor_backend", mode="before")
+    @field_validator("distributed_executor_backend", "detector_type", mode="before")
     @classmethod
     def _lowercase_literals(cls, v: Any) -> Any:
         return v.strip().lower() if isinstance(v, str) else v
