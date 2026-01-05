@@ -114,7 +114,7 @@ class SlouchDetector:
             raise RuntimeError(f"vLLM returned empty text for frame_id={frame_id}")
 
         generated_text = outputs[0].outputs[0].text.strip()
-        logger.debug("VLM Output: %s", generated_text.strip())
+        logger.info("VLM Output: %s", generated_text.strip())
 
         parsed = self._parse_yes_no_or_error(generated_text)
         if debug_writer is not None:

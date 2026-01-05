@@ -30,7 +30,7 @@ def monitor_loop(detector):
     from src.camera import Camera
 
     camera = Camera()
-    logger.debug("Using Camera: %s", camera.describe())
+    logger.info("Using Camera: %s", camera.describe())
     debug_writer = None
     if settings.debug_save_frames:
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
@@ -44,7 +44,7 @@ def monitor_loop(detector):
 
         if is_enabled:
             # Capture frame
-            logger.debug("Capturing frame...")
+            logger.info("Capturing frame...")
             image = camera.capture_frame()
             saved = None
             if debug_writer is not None:
@@ -60,7 +60,7 @@ def monitor_loop(detector):
                 )
 
             # Detect
-            logger.debug("Analyzing...")
+            logger.info("Analyzing...")
             is_slouching = detector.is_slouching(
                 image,
                 frame_id=(saved.frame_id if saved else None),
@@ -80,7 +80,7 @@ def monitor_loop(detector):
 
                 manager.run(camera, image, _should_continue)
             else:
-                logger.debug("Posture OK.")
+                logger.info("Posture OK.")
 
         # Sleep for configured interval
         for _ in range(settings.check_interval_seconds):
@@ -110,7 +110,7 @@ def on_quit():
 def main():
     configure_logging(settings.log_level)
     logger.info("Starting Slouchless...")
-    logger.debug("Settings:\n%s", format_settings_for_log(settings))
+    logger.info("Settings:\n%s", format_settings_for_log(settings))
 
     # Ray can emit noisy (and typically harmless) errors if its internal OpenTelemetry
     # metrics exporter agent can't start/connect. We don't use Ray metrics in Slouchless,
