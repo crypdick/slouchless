@@ -70,101 +70,15 @@ def monitor_loop(detector):
 
             if is_slouching:
                 logger.info("SLOUCH DETECTED!")
-                from src.ui import show_slouch_popup, send_ffplay_feedback_frame
+                from src.popup.feedback_manager import FeedbackManager
 
-                try:
-                    # Open ffplay feedback window.
-                    show_slouch_popup(image)
+                manager = FeedbackManager(detector, debug_writer)
 
-                    interval_s = max(
-                        0.05, float(settings.popup_feedback_interval_ms) / 1000.0
-                    )
-                    pump_fps = float(settings.popup_preview_fps)
-                    pump_dt = 1.0 / pump_fps
+                def _should_continue():
+                    with state.lock:
+                        return state.running
 
-                    overlay_lock = threading.Lock()
-                    latest_frame = {"img": image}
-                    overlay = {
-                        "kind": "error",
-                        "message": "starting…",
-                        "raw_output": "",
-                    }
-
-                    # Force ffplay to open immediately with an initial frame.
-                    send_ffplay_feedback_frame(
-                        image,
-                        kind=str(overlay["kind"]),
-                        message=str(overlay["message"]),
-                        raw_output=str(overlay["raw_output"]),
-                        fps=int(pump_fps),
-                    )
-
-                    stop = threading.Event()
-
-                    def _infer_worker() -> None:
-                        last = 0.0
-                        while not stop.is_set():
-                            now = time.time()
-                            if now - last < interval_s:
-                                time.sleep(min(0.05, interval_s))
-                                continue
-                            last = now
-
-                            with overlay_lock:
-                                frame = latest_frame["img"]
-                            if frame is None:
-                                continue
-
-                            try:
-                                result = detector.analyze(
-                                    frame,
-                                    debug_writer=debug_writer,
-                                )
-                                with overlay_lock:
-                                    overlay["kind"] = str(result.get("kind") or "error")
-                                    overlay["message"] = str(
-                                        result.get("message") or "error"
-                                    )
-                                    overlay["raw_output"] = str(
-                                        result.get("raw_output") or ""
-                                    )
-                            except Exception as e:
-                                with overlay_lock:
-                                    overlay["kind"] = "error"
-                                    overlay["message"] = f"{type(e).__name__}: {e}"
-                                    overlay["raw_output"] = ""
-
-                    t = threading.Thread(target=_infer_worker, daemon=True)
-                    t.start()
-
-                    while True:
-                        with state.lock:
-                            if not state.running:
-                                break
-
-                        img = camera.capture_frame()
-                        with overlay_lock:
-                            latest_frame["img"] = img
-                            k = str(overlay["kind"])
-                            m = str(overlay["message"])
-                            r = str(overlay["raw_output"])
-
-                        ok = send_ffplay_feedback_frame(
-                            img,
-                            kind=k,
-                            message=m,
-                            raw_output=r,
-                            fps=int(pump_fps),
-                        )
-                        if not ok:
-                            # Popup closed / ffplay died.
-                            break
-
-                        time.sleep(pump_dt)
-
-                    stop.set()
-                except Exception as e:
-                    logger.exception("Popup handling failed: %s", e)
+                manager.run(camera, image, _should_continue)
             else:
                 logger.debug("Posture OK.")
 

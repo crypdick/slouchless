@@ -38,71 +38,94 @@ class Camera:
         cls, preferred_name: str, fallback_index: int | None
     ) -> tuple[int, str]:
         preferred_name = (preferred_name or "").strip()
+
         if preferred_name:
-            matches: list[tuple[int, str]] = []
-            devices = cls._list_linux_video_devices()
-            for idx, name in devices:
-                if preferred_name.lower() in name.lower():
-                    matches.append((idx, name))
-            if not matches:
-                available = cls._list_linux_video_devices()
-                available_str = (
-                    ", ".join([f"{i}:{n}" for i, n in available]) or "(none found)"
-                )
-                raise RuntimeError(
-                    f"Could not find a webcam matching SLOUCHLESS_CAMERA_NAME={preferred_name!r}. "
-                    f"Available cameras: {available_str}"
-                )
-            if len(matches) > 1:
-                # If we have multiple matches but exactly one is an exact match, prefer it.
-                exact_matches = [
-                    (idx, name)
-                    for idx, name in matches
-                    if name.strip().lower() == preferred_name.lower()
-                ]
+            return cls._resolve_by_name(preferred_name, fallback_index)
 
-                # Allow disambiguation via explicit device id if provided.
-                if fallback_index is not None:
-                    for idx, name in matches:
-                        if idx == fallback_index:
-                            return (idx, name)
-                    raise RuntimeError(
-                        f"SLOUCHLESS_CAMERA_DEVICE_ID={fallback_index} did not match any camera "
-                        f"that matched SLOUCHLESS_CAMERA_NAME={preferred_name!r}: {matches}."
-                    )
-
-                # If the name is an exact match for multiple devices, deterministically pick the
-                # FIRST exact match (in the discovered order) but warn loudly so the user can
-                # disambiguate if needed.
-                if len(exact_matches) > 1:
-                    chosen = exact_matches[0]
-                    print(
-                        f"WARNING: Multiple webcams exactly matched SLOUCHLESS_CAMERA_NAME="
-                        f"{preferred_name!r}: {exact_matches}. "
-                        f"Auto-selecting first match: {chosen[0]}. "
-                        "Set SLOUCHLESS_CAMERA_DEVICE_ID to silence this warning.",
-                        file=sys.stderr,
-                    )
-                    return chosen
-
-                ids = [idx for idx, _ in matches]
-                raise RuntimeError(
-                    f"Multiple webcams matched SLOUCHLESS_CAMERA_NAME={preferred_name!r}: {matches}. "
-                    f"Set SLOUCHLESS_CAMERA_DEVICE_ID to one of {ids}, or use a more specific substring."
-                )
-            return matches[0]
-
-        # If no name provided, optionally use numeric index (if configured).
         if fallback_index is not None:
-            resolved_name = (
-                cls._device_name_from_sys(fallback_index) or f"video{fallback_index}"
-            )
-            return fallback_index, resolved_name
+            return cls._resolve_by_index(fallback_index)
 
-        # Auto-detect: if exactly one camera is present, use it; otherwise fail fast.
+        return cls._auto_detect()
+
+    @classmethod
+    def _resolve_by_name(
+        cls, preferred_name: str, fallback_index: int | None
+    ) -> tuple[int, str]:
+        matches: list[tuple[int, str]] = []
+        devices = cls._list_linux_video_devices()
+        for idx, name in devices:
+            if preferred_name.lower() in name.lower():
+                matches.append((idx, name))
+
+        if not matches:
+            available = cls._list_linux_video_devices()
+            available_str = (
+                ", ".join([f"{i}:{n}" for i, n in available]) or "(none found)"
+            )
+            raise RuntimeError(
+                f"Could not find a webcam matching SLOUCHLESS_CAMERA_NAME={preferred_name!r}. "
+                f"Available cameras: {available_str}"
+            )
+
+        if len(matches) > 1:
+            return cls._disambiguate_matches(matches, preferred_name, fallback_index)
+
+        return matches[0]
+
+    @classmethod
+    def _disambiguate_matches(
+        cls,
+        matches: list[tuple[int, str]],
+        preferred_name: str,
+        fallback_index: int | None,
+    ) -> tuple[int, str]:
+        # If we have multiple matches but exactly one is an exact match, prefer it.
+        exact_matches = [
+            (idx, name)
+            for idx, name in matches
+            if name.strip().lower() == preferred_name.lower()
+        ]
+
+        # Allow disambiguation via explicit device id if provided.
+        if fallback_index is not None:
+            for idx, name in matches:
+                if idx == fallback_index:
+                    return (idx, name)
+            raise RuntimeError(
+                f"SLOUCHLESS_CAMERA_DEVICE_ID={fallback_index} did not match any camera "
+                f"that matched SLOUCHLESS_CAMERA_NAME={preferred_name!r}: {matches}."
+            )
+
+        # If the name is an exact match for multiple devices, deterministically pick the
+        # FIRST exact match (in the discovered order) but warn loudly.
+        if len(exact_matches) > 1:
+            chosen = exact_matches[0]
+            print(
+                f"WARNING: Multiple webcams exactly matched SLOUCHLESS_CAMERA_NAME="
+                f"{preferred_name!r}: {exact_matches}. "
+                f"Auto-selecting first match: {chosen[0]}. "
+                "Set SLOUCHLESS_CAMERA_DEVICE_ID to silence this warning.",
+                file=sys.stderr,
+            )
+            return chosen
+
+        ids = [idx for idx, _ in matches]
+        raise RuntimeError(
+            f"Multiple webcams matched SLOUCHLESS_CAMERA_NAME={preferred_name!r}: {matches}. "
+            f"Set SLOUCHLESS_CAMERA_DEVICE_ID to one of {ids}, or use a more specific substring."
+        )
+
+    @classmethod
+    def _resolve_by_index(cls, index: int) -> tuple[int, str]:
+        resolved_name = cls._device_name_from_sys(index) or f"video{index}"
+        return index, resolved_name
+
+    @classmethod
+    def _auto_detect(cls) -> tuple[int, str]:
         available = cls._list_linux_video_devices()
         if len(available) == 1:
             return available[0]
+
         available_str = ", ".join([f"{i}:{n}" for i, n in available]) or "(none found)"
         raise RuntimeError(
             "No camera configured. Set SLOUCHLESS_CAMERA_NAME (recommended) or "
@@ -115,17 +138,22 @@ class Camera:
 
     def _ensure_open(self):
         if self.cap is None or not self.cap.isOpened():
-            self.cap = cv2.VideoCapture(self.device_id)
-            if not self.cap.isOpened():
-                raise RuntimeError(f"Could not open camera {self.describe()}")
-            # Best-effort: reduce internal buffering so we don't analyze stale frames.
-            try:
-                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            except Exception as e:
-                # Not all backends support this property; warn loudly but continue.
-                print(
-                    f"WARNING: Failed to set CAP_PROP_BUFFERSIZE: {e}", file=sys.stderr
-                )
+            self._open_cap()
+
+    def _open_cap(self):
+        if self.cap is not None:
+            self.cap.release()
+
+        self.cap = cv2.VideoCapture(self.device_id)
+        if not self.cap.isOpened():
+            raise RuntimeError(f"Could not open camera {self.describe()}")
+
+        # Best-effort: reduce internal buffering so we don't analyze stale frames.
+        try:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception as e:
+            # Not all backends support this property; warn loudly but continue.
+            print(f"WARNING: Failed to set CAP_PROP_BUFFERSIZE: {e}", file=sys.stderr)
 
     def capture_frame(self):
         """
@@ -146,14 +174,7 @@ class Camera:
         ret, frame = self.cap.read()
         if not ret:
             # Try to reopen once
-            self.cap.release()
-            self.cap = cv2.VideoCapture(self.device_id)
-            try:
-                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            except Exception as e:
-                print(
-                    f"WARNING: Failed to set CAP_PROP_BUFFERSIZE: {e}", file=sys.stderr
-                )
+            self._open_cap()
             ret, frame = self.cap.read()
             if not ret:
                 raise RuntimeError("Failed to capture frame from camera")

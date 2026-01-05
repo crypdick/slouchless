@@ -1,4 +1,6 @@
 import logging
+from typing import Literal, TypedDict
+
 from vllm import LLM, SamplingParams
 from PIL import Image
 from src.settings import settings
@@ -7,6 +9,13 @@ from src.debug_images import DebugFrameWriter
 
 
 logger = logging.getLogger(__name__)
+
+
+class AnalysisResult(TypedDict):
+    kind: Literal["good", "bad", "error"]
+    slouching: bool | None
+    message: str
+    raw_output: str
 
 
 class SlouchDetector:
@@ -89,15 +98,9 @@ class SlouchDetector:
         frame_id: str | None = None,
         frame_path: str | None = None,
         debug_writer: DebugFrameWriter | None = None,
-    ) -> dict[str, object]:
+    ) -> AnalysisResult:
         """
         Structured inference result for UI feedback.
-
-        Returns dict with:
-          - kind: "good" | "bad" | "error"
-          - slouching: bool | None
-          - message: str (human-friendly)
-          - raw_output: str
         """
         prompt = settings.prompt
         inputs = [{"prompt": prompt, "multi_modal_data": {"image": image}}]
