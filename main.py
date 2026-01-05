@@ -4,6 +4,7 @@ import sys
 import logging
 
 from src.settings import settings
+from src.settings import format_settings_for_log
 from src.debug_images import DebugFrameWriter, clear_debug_dir, resolve_debug_dir
 from src.logging_setup import configure_logging
 
@@ -69,164 +70,101 @@ def monitor_loop(detector):
 
             if is_slouching:
                 logger.info("SLOUCH DETECTED!")
-                from src.ui import show_slouch_popup, resolve_popup_backend
-
-                # If the popup opens the webcam (ffplay live), release our capture first
-                # to avoid device contention; then reopen afterwards.
-                effective_backend = resolve_popup_backend()
-                feedback_mode = (
-                    settings.popup_mode == "feedback" and effective_backend == "ffplay"
-                )
-                will_use_webcam = (
-                    settings.popup_mode == "live" and effective_backend == "ffplay"
-                )
-                logger.debug(
-                    "popup resolved backend=%r popup_mode=%r feedback_mode=%s",
-                    effective_backend,
-                    settings.popup_mode,
-                    feedback_mode,
-                )
+                from src.ui import show_slouch_popup, send_ffplay_feedback_frame
 
                 try:
-                    if will_use_webcam:
-                        camera.release()
+                    # Open ffplay feedback window.
+                    show_slouch_popup(image)
 
-                    show_slouch_popup(
+                    interval_s = max(
+                        0.05, float(settings.popup_feedback_interval_ms) / 1000.0
+                    )
+                    pump_fps = float(settings.popup_preview_fps)
+                    pump_dt = 1.0 / pump_fps
+
+                    overlay_lock = threading.Lock()
+                    latest_frame = {"img": image}
+                    overlay = {
+                        "kind": "error",
+                        "message": "starting…",
+                        "raw_output": "",
+                    }
+
+                    # Force ffplay to open immediately with an initial frame.
+                    send_ffplay_feedback_frame(
                         image,
-                        camera_device_id=camera.device_id,
-                        camera_name=camera.device_name,
+                        kind=str(overlay["kind"]),
+                        message=str(overlay["message"]),
+                        raw_output=str(overlay["raw_output"]),
+                        fps=int(pump_fps),
                     )
 
-                    # Feedback mode: while the popup is open, continuously run inference
-                    # and stream frames + status into the popup.
-                    if feedback_mode:
-                        from src.ui import send_ffplay_feedback_frame
-                        import threading
+                    stop = threading.Event()
 
-                        interval_s = max(
-                            0.05, float(settings.popup_feedback_interval_ms) / 1000.0
-                        )
+                    def _infer_worker() -> None:
+                        last = 0.0
+                        while not stop.is_set():
+                            now = time.time()
+                            if now - last < interval_s:
+                                time.sleep(min(0.05, interval_s))
+                                continue
+                            last = now
 
-                        # Keep the window updating smoothly even if inference is slow:
-                        # - video pump: captures frames ~15fps and streams to ffplay
-                        # - inference worker: analyzes latest frame at interval_s and updates overlay text
-                        pump_fps = float(settings.popup_preview_fps)
-                        pump_dt = 1.0 / pump_fps
+                            with overlay_lock:
+                                frame = latest_frame["img"]
+                            if frame is None:
+                                continue
 
-                        overlay_lock = threading.Lock()
-                        latest_frame = {"img": image}
-                        overlay = {
-                            "kind": "error",
-                            "message": "starting…",
-                            "raw_output": "",
-                        }
+                            try:
+                                result = detector.analyze(
+                                    frame,
+                                    debug_writer=debug_writer,
+                                )
+                                with overlay_lock:
+                                    overlay["kind"] = str(result.get("kind") or "error")
+                                    overlay["message"] = str(
+                                        result.get("message") or "error"
+                                    )
+                                    overlay["raw_output"] = str(
+                                        result.get("raw_output") or ""
+                                    )
+                            except Exception as e:
+                                with overlay_lock:
+                                    overlay["kind"] = "error"
+                                    overlay["message"] = f"{type(e).__name__}: {e}"
+                                    overlay["raw_output"] = ""
 
-                        # Force ffplay to open immediately.
-                        send_ffplay_feedback_frame(
-                            image,
-                            kind=str(overlay["kind"]),
-                            message=str(overlay["message"]),
-                            raw_output=str(overlay["raw_output"]),
+                    t = threading.Thread(target=_infer_worker, daemon=True)
+                    t.start()
+
+                    while True:
+                        with state.lock:
+                            if not state.running:
+                                break
+
+                        img = camera.capture_frame()
+                        with overlay_lock:
+                            latest_frame["img"] = img
+                            k = str(overlay["kind"])
+                            m = str(overlay["message"])
+                            r = str(overlay["raw_output"])
+
+                        ok = send_ffplay_feedback_frame(
+                            img,
+                            kind=k,
+                            message=m,
+                            raw_output=r,
                             fps=int(pump_fps),
                         )
+                        if not ok:
+                            # Popup closed / ffplay died.
+                            break
 
-                        stop = threading.Event()
+                        time.sleep(pump_dt)
 
-                        def _infer_worker() -> None:
-                            last = 0.0
-                            while not stop.is_set():
-                                now = time.time()
-                                if now - last < interval_s:
-                                    time.sleep(min(0.05, interval_s))
-                                    continue
-                                last = now
-
-                                with overlay_lock:
-                                    frame = latest_frame["img"]
-                                if frame is None:
-                                    continue
-
-                                # For debug visibility, save + log each inference frame in feedback mode.
-                                saved_fb = None
-                                if debug_writer is not None:
-                                    try:
-                                        saved_fb = debug_writer.save_frame(frame)
-                                        debug_writer.log(
-                                            {
-                                                "event": "feedback_frame_captured",
-                                                "frame_id": saved_fb.frame_id,
-                                                "frame_path": str(saved_fb.path),
-                                                "camera_index": camera.device_id,
-                                                "camera_name": camera.device_name,
-                                            }
-                                        )
-                                    except Exception:
-                                        saved_fb = None
-
-                                try:
-                                    result = detector.analyze(
-                                        frame,
-                                        frame_id=(
-                                            saved_fb.frame_id if saved_fb else None
-                                        ),
-                                        frame_path=(
-                                            str(saved_fb.path) if saved_fb else None
-                                        ),
-                                        debug_writer=debug_writer,
-                                    )
-                                    with overlay_lock:
-                                        overlay["kind"] = str(
-                                            result.get("kind") or "error"
-                                        )
-                                        overlay["message"] = str(
-                                            result.get("message") or "error"
-                                        )
-                                        overlay["raw_output"] = str(
-                                            result.get("raw_output") or ""
-                                        )
-                                except Exception as e:
-                                    with overlay_lock:
-                                        overlay["kind"] = "error"
-                                        overlay["message"] = f"{type(e).__name__}: {e}"
-                                        overlay["raw_output"] = ""
-
-                        t = threading.Thread(target=_infer_worker, daemon=True)
-                        t.start()
-
-                        try:
-                            while True:
-                                with state.lock:
-                                    if not state.running:
-                                        break
-
-                                img = camera.capture_frame()
-                                with overlay_lock:
-                                    latest_frame["img"] = img
-                                    k = str(overlay["kind"])
-                                    m = str(overlay["message"])
-                                    r = str(overlay["raw_output"])
-
-                                ok = send_ffplay_feedback_frame(
-                                    img,
-                                    kind=k,
-                                    message=m,
-                                    raw_output=r,
-                                    fps=int(pump_fps),
-                                )
-                                if not ok:
-                                    raise StopIteration
-
-                                time.sleep(pump_dt)
-                        finally:
-                            stop.set()
-                except StopIteration:
-                    # Popup closed (feedback mode)
-                    pass
+                    stop.set()
                 except Exception as e:
                     logger.exception("Popup handling failed: %s", e)
-                finally:
-                    if will_use_webcam:
-                        camera = Camera()
             else:
                 logger.debug("Posture OK.")
 
@@ -258,11 +196,7 @@ def on_quit():
 def main():
     configure_logging(settings.log_level)
     logger.info("Starting Slouchless...")
-    logger.debug(
-        "Camera config: camera_name=%r camera_device_id=%r",
-        settings.camera_name,
-        settings.camera_device_id,
-    )
+    logger.debug("Settings:\n%s", format_settings_for_log(settings))
 
     # Ray can emit noisy (and typically harmless) errors if its internal OpenTelemetry
     # metrics exporter agent can't start/connect. We don't use Ray metrics in Slouchless,

@@ -6,8 +6,8 @@ Usage examples:
   uv run --active python diagnose_popup.py --device-id 3
   uv run --active python diagnose_popup.py --camera-name "Logi Webcam" --auto-close 5
 
-This script opens the configured popup backend and (for feedback mode) streams frames
-briefly to validate the full path end-to-end.
+This script opens the ffplay feedback popup and streams frames briefly to validate
+the full path end-to-end.
 """
 
 from __future__ import annotations
@@ -37,22 +37,16 @@ def _parse_args() -> argparse.Namespace:
         help="Camera name substring (Linux /sys/class/video4linux/.../name)",
     )
     p.add_argument(
-        "--popup-mode",
-        choices=["feedback", "live"],
-        default="feedback",
-        help="Popup mode to test (matches SLOUCHLESS_POPUP_MODE).",
-    )
-    p.add_argument(
         "--blocking",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="If true, keep streaming until you close the popup (feedback mode only).",
+        help="If true, keep streaming until you close the popup.",
     )
     p.add_argument(
         "--auto-close",
         type=int,
         default=8,
-        help="Auto-close after N seconds in feedback mode (0 disables). Default: 8",
+        help="Auto-close after N seconds (0 disables). Default: 8",
     )
     return p.parse_args()
 
@@ -61,8 +55,7 @@ def main() -> int:
     args = _parse_args()
 
     # Force a fast test configuration unless the user overrides via env.
-    _set_default_env("SLOUCHLESS_POPUP_BACKEND", "ffplay")
-    _set_default_env("SLOUCHLESS_POPUP_MODE", args.popup_mode)
+    _set_default_env("SLOUCHLESS_POPUP_PREVIEW_FPS", "15")
 
     if args.device_id is not None:
         _set_default_env("SLOUCHLESS_CAMERA_DEVICE_ID", str(int(args.device_id)))
@@ -75,8 +68,9 @@ def main() -> int:
     print(
         f"DISPLAY={os.environ.get('DISPLAY')!r} WAYLAND_DISPLAY={os.environ.get('WAYLAND_DISPLAY')!r}"
     )
-    print(f"SLOUCHLESS_POPUP_BACKEND={os.environ.get('SLOUCHLESS_POPUP_BACKEND')!r}")
-    print(f"SLOUCHLESS_POPUP_MODE={os.environ.get('SLOUCHLESS_POPUP_MODE')!r}")
+    print(
+        f"SLOUCHLESS_POPUP_PREVIEW_FPS={os.environ.get('SLOUCHLESS_POPUP_PREVIEW_FPS')!r}"
+    )
     print(
         f"SLOUCHLESS_CAMERA_DEVICE_ID={os.environ.get('SLOUCHLESS_CAMERA_DEVICE_ID')!r}"
     )
@@ -93,33 +87,17 @@ def main() -> int:
     # Import AFTER env vars are set so pydantic-settings picks them up.
     from src.camera import Camera
     from src.settings import settings
-    from src.ui import (
-        send_ffplay_feedback_frame,
-        show_slouch_popup,
-        shutdown_popup_worker,
-    )
+    from src.popup.ffplay_feedback import close_feedback_window
+    from src.ui import send_ffplay_feedback_frame, show_slouch_popup
 
     cam = None
     try:
         cam = Camera()
         print(f"Camera resolved: {cam.describe()}")
-        device_id = cam.device_id
-        device_name = cam.device_name
 
         # Open popup window/path
         first = cam.capture_frame()
-        show_slouch_popup(first, camera_device_id=device_id, camera_name=device_name)
-
-        if settings.popup_backend in ("notify",) or (
-            settings.popup_backend == "auto" and os.environ.get("DISPLAY") is None
-        ):
-            print("OK: notify path executed.")
-            return 0
-
-        # For live mode, `show_slouch_popup` spawns ffplay and returns immediately.
-        if settings.popup_mode == "live":
-            print("OK: live ffplay spawned (close the window manually).")
-            return 0
+        show_slouch_popup(first)
 
         # Feedback mode: stream frames for N seconds (or until window closes).
         deadline = (
@@ -142,14 +120,14 @@ def main() -> int:
                 break
             time.sleep(1.0 / max(1.0, float(settings.popup_preview_fps)))
 
-        shutdown_popup_worker()
+        close_feedback_window()
         print("OK: feedback path executed and cleaned up.")
         return 0
     except Exception:
         print("ERROR: popup diagnostics failed:", file=sys.stderr)
         traceback.print_exc()
         try:
-            shutdown_popup_worker()
+            close_feedback_window()
         except Exception:
             pass
         return 1

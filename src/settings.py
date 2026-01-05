@@ -93,8 +93,8 @@ class Settings(BaseSettings):
     check_interval_seconds: int = Field(default=30, ge=1)
 
     # Debug
-    debug_save_frames: bool = Field(default=True)
-    debug_clear_frames_on_start: bool = Field(default=True)
+    debug_save_frames: bool = Field(default=False)
+    debug_clear_frames_on_start: bool = Field(default=False)
     debug_max_frames: int = Field(default=20, ge=1)
     debug_frames_dir: str = Field(default="debug_frames")
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
@@ -104,22 +104,17 @@ class Settings(BaseSettings):
 
     # UI
     popup_thumbnail_size: tuple[int, int] = Field(default=(600, 600))
-    popup_backend: Literal["auto", "notify", "ffplay"] = Field(default="ffplay")
-    popup_mode: Literal["feedback", "live"] = Field(
-        default="feedback",
-        description="For popup_backend=ffplay: feedback draws an overlay while running inference; live opens a raw camera preview.",
-    )
     popup_feedback_interval_ms: int = Field(
         default=500,
         ge=50,
         le=10_000,
-        description="For popup_mode=feedback: inference cadence while the popup is open.",
+        description="Inference cadence while the feedback popup is open.",
     )
     popup_preview_fps: int = Field(
         default=15,
         ge=1,
         le=60,
-        description="For popup_mode=feedback: preview framerate pushed to the ffplay window.",
+        description="Preview framerate pushed to the ffplay window.",
     )
 
     @field_validator("camera_resize_to", mode="before")
@@ -135,10 +130,32 @@ class Settings(BaseSettings):
             raise ValueError("popup_thumbnail_size cannot be empty")
         return parsed
 
-    @field_validator("popup_backend", "distributed_executor_backend", mode="before")
+    @field_validator("distributed_executor_backend", mode="before")
     @classmethod
     def _lowercase_literals(cls, v: Any) -> Any:
         return v.strip().lower() if isinstance(v, str) else v
+
+
+def format_settings_for_log(
+    s: Settings,
+    *,
+    max_str: int = 220,
+) -> str:
+    """
+    Stable, readable Settings dump for logs.
+
+    - Sorts keys for deterministic output
+    - Truncates very long strings (e.g. prompt)
+    """
+    data = s.model_dump()
+    lines: list[str] = []
+    for k in sorted(data.keys()):
+        v = data[k]
+        if isinstance(v, str) and len(v) > max_str:
+            preview = v[: max_str - 3].rstrip() + "..."
+            v = f"{preview} (len={len(data[k])})"
+        lines.append(f"{k}={v!r}")
+    return "\n".join(lines)
 
 
 @lru_cache(maxsize=1)

@@ -2,6 +2,7 @@ import logging
 from vllm import LLM, SamplingParams
 from PIL import Image
 from src.settings import settings
+from src.settings import format_settings_for_log
 from src.debug_images import DebugFrameWriter
 
 
@@ -13,10 +14,7 @@ class SlouchDetector:
         self.model_name = settings.model_name
 
         logger.info("Initializing vLLM with model: %s", self.model_name)
-        logger.debug("GPU Utilization Limit: %s", settings.gpu_memory_utilization)
-        logger.debug("Quantization: %s", settings.quantization)
-        logger.debug("Enforce Eager Mode: %s", settings.enforce_eager)
-        logger.debug("Distributed Backend: %s", settings.distributed_executor_backend)
+        logger.debug("Detector settings:\n%s", format_settings_for_log(settings))
 
         # Initialize vLLM
         try:
