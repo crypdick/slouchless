@@ -1,17 +1,33 @@
 from __future__ import annotations
 
 import io
+from functools import lru_cache
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 
-def _assets_font(name: str) -> Path:
+def _assets_path(name: str) -> Path:
     # This file lives in <root>/src/popup/; parents[2] is the repo root.
     return Path(__file__).resolve().parents[2] / "assets" / name
 
 
+def _assets_font(name: str) -> Path:
+    return _assets_path(name)
+
+
+@lru_cache(maxsize=8)
+def _load_icon_image(name: str, size: int) -> Image.Image:
+    """Load and resize an icon image from assets."""
+    path = _assets_path(name)
+    img = Image.open(path).convert("RGBA")
+    img = img.resize((size, size), Image.Resampling.LANCZOS)
+    return img
+
+
+@lru_cache(maxsize=16)
 def _load_font(path: Path, px: int) -> ImageFont.ImageFont:
+    """Load a TrueType font."""
     px = int(max(12, px))
     try:
         return ImageFont.truetype(str(path), px)
@@ -20,72 +36,27 @@ def _load_font(path: Path, px: int) -> ImageFont.ImageFont:
 
 
 def _draw_icon(
-    draw: ImageDraw.ImageDraw, *, kind: str, x: int, y: int, size: int
+    canvas: Image.Image,
+    *,
+    kind: str,
+    x: int,
+    y: int,
+    size: int,
 ) -> None:
     size = int(size)
-    x2, y2 = x + size, y + size
     if kind == "good":
-        draw.ellipse(
-            [x, y, x2, y2], fill=(16, 163, 74), outline=(255, 255, 255), width=3
-        )
-        draw.line(
-            [
-                (x + size * 0.25, y + size * 0.55),
-                (x + size * 0.43, y + size * 0.72),
-            ],
-            fill=(255, 255, 255),
-            width=max(3, size // 10),
-        )
-        draw.line(
-            [
-                (x + size * 0.42, y + size * 0.72),
-                (x + size * 0.78, y + size * 0.30),
-            ],
-            fill=(255, 255, 255),
-            width=max(3, size // 10),
-        )
+        doge_img = _load_icon_image("doge_muscles.webp", size)
+        canvas.paste(doge_img, (x, y), doge_img)
         return
 
     if kind == "bad":
-        stroke = max(6, size // 6)
-        inset = max(6, size // 8)
-        draw.line(
-            [(x + inset, y + inset), (x2 - inset, y2 - inset)],
-            fill=(0, 0, 0),
-            width=stroke + 4,
-        )
-        draw.line(
-            [(x2 - inset, y + inset), (x + inset, y2 - inset)],
-            fill=(0, 0, 0),
-            width=stroke + 4,
-        )
-        draw.line(
-            [(x + inset, y + inset), (x2 - inset, y2 - inset)],
-            fill=(239, 68, 68),
-            width=stroke,
-        )
-        draw.line(
-            [(x2 - inset, y + inset), (x + inset, y2 - inset)],
-            fill=(239, 68, 68),
-            width=stroke,
-        )
+        bonk_img = _load_icon_image("bonk.webp", size)
+        canvas.paste(bonk_img, (x, y), bonk_img)
         return
 
-    # error: warning triangle
-    draw.polygon(
-        [(x + size * 0.5, y), (x2, y2), (x, y2)],
-        fill=(245, 158, 11),
-        outline=(255, 255, 255),
-    )
-    draw.line(
-        [(x + size * 0.5, y + size * 0.30), (x + size * 0.5, y + size * 0.72)],
-        fill=(0, 0, 0),
-        width=max(3, size // 10),
-    )
-    draw.ellipse(
-        [x + size * 0.45, y + size * 0.78, x + size * 0.55, y + size * 0.88],
-        fill=(0, 0, 0),
-    )
+    # error: chihuahua or muffin?
+    error_img = _load_icon_image("chihuahua-or-muffin.webp", size)
+    canvas.paste(error_img, (x, y), error_img)
 
 
 def _strip_known_emoji_tofu(text: str) -> str:
@@ -131,7 +102,7 @@ def render_feedback_frame(
     icon_size = int(min(banner_h * 0.50, w * 0.12))
     icon_x = 16
     icon_y = int(banner_h * 0.08)
-    _draw_icon(draw, kind=kind, x=icon_x, y=icon_y, size=icon_size)
+    _draw_icon(canvas, kind=kind, x=icon_x, y=icon_y, size=icon_size)
 
     honk = _assets_font("Honk-Regular-VariableFont_MORF,SHLN.ttf")
     glitch = _assets_font("RubikGlitch-Regular.ttf")
