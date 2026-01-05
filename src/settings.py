@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     debug_clear_frames_on_start: bool = Field(default=True)
     debug_max_frames: int = Field(default=20, ge=1)
     debug_frames_dir: str = Field(default="debug_frames")
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
+        default="INFO",
+        description="Python logging level (e.g. INFO, DEBUG).",
+    )
 
     # UI
     popup_thumbnail_size: tuple[int, int] = Field(default=(600, 600))

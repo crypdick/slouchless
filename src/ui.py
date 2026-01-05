@@ -1,3 +1,4 @@
+import logging
 from PIL import Image, ImageDraw, ImageTk, ImageFont
 import tkinter as tk
 from src.settings import settings
@@ -12,6 +13,9 @@ import shutil
 import io
 from dataclasses import dataclass
 import time
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_icon_image(color="green", size=(64, 64)):
@@ -119,8 +123,8 @@ class _PopupWorkerClient:
 _popup_worker: _PopupWorkerClient | None = None
 
 #
-# NOTE: We intentionally do NOT use Tk for feedback streaming (xcb instability on some setups)
-# and do NOT use OpenCV HighGUI (often unavailable in headless OpenCV builds). For feedback,
+# NOTE: We intentionally do NOT use Tk for feedback streaming (xcb instability on some setups).
+# For feedback,
 # we render an overlay in Python and stream MJPEG into an ffplay window over stdin.
 #
 
@@ -199,7 +203,7 @@ def _ffplay_feedback_open(*, fps: int) -> None:
         except Exception:
             pass
         raise RuntimeError(f"ffplay exited immediately:\n{err}".rstrip())
-    print(f"DEBUG: ffplay feedback started (pid={p.pid})")
+    logger.debug("ffplay feedback started (pid=%s)", p.pid)
     _ffplay_feedback = _FFplayFeedback(proc=p, fps=int(fps))
 
 

@@ -1,18 +1,22 @@
+import logging
 from vllm import LLM, SamplingParams
 from PIL import Image
 from src.settings import settings
 from src.debug_images import DebugFrameWriter
 
 
+logger = logging.getLogger(__name__)
+
+
 class SlouchDetector:
     def __init__(self):
         self.model_name = settings.model_name
 
-        print(f"DEBUG: Initializing vLLM with model: {self.model_name}")
-        print(f"DEBUG: GPU Utilization Limit: {settings.gpu_memory_utilization}")
-        print(f"DEBUG: Quantization: {settings.quantization}")
-        print(f"DEBUG: Enforce Eager Mode: {settings.enforce_eager}")
-        print(f"DEBUG: Distributed Backend: {settings.distributed_executor_backend}")
+        logger.info("Initializing vLLM with model: %s", self.model_name)
+        logger.debug("GPU Utilization Limit: %s", settings.gpu_memory_utilization)
+        logger.debug("Quantization: %s", settings.quantization)
+        logger.debug("Enforce Eager Mode: %s", settings.enforce_eager)
+        logger.debug("Distributed Backend: %s", settings.distributed_executor_backend)
 
         # Initialize vLLM
         try:
@@ -26,10 +30,10 @@ class SlouchDetector:
                 max_model_len=2048,
                 distributed_executor_backend=settings.distributed_executor_backend,
             )
-            print("DEBUG: vLLM LLM object created successfully.")
+            logger.debug("vLLM LLM object created successfully.")
         except Exception as e:
-            print(f"CRITICAL ERROR during vLLM init: {e}")
-            raise e
+            logger.exception("CRITICAL ERROR during vLLM init: %s", e)
+            raise
 
         self.sampling_params = SamplingParams(
             temperature=settings.temperature, max_tokens=settings.max_tokens
@@ -109,7 +113,7 @@ class SlouchDetector:
             raise RuntimeError(f"vLLM returned empty text for frame_id={frame_id}")
 
         generated_text = outputs[0].outputs[0].text.strip()
-        print(f"VLM Output: {generated_text.strip().lower()}")
+        logger.debug("VLM Output: %s", generated_text.strip())
 
         parsed = self._parse_yes_no_or_error(generated_text)
         if debug_writer is not None:

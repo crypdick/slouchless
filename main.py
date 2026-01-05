@@ -1,9 +1,14 @@
 import time
 import threading
 import sys
+import logging
 
 from src.settings import settings
 from src.debug_images import DebugFrameWriter, clear_debug_dir, resolve_debug_dir
+from src.logging_setup import configure_logging
+
+
+logger = logging.getLogger(__name__)
 
 
 # Global state
@@ -18,13 +23,13 @@ state = AppState()
 
 
 def monitor_loop(detector):
-    print("DEBUG: monitor_loop started")
+    logger.debug("monitor_loop started")
 
     # Initialize Camera
     from src.camera import Camera
 
     camera = Camera()
-    print(f"DEBUG: Using Camera: {camera.describe()}")
+    logger.debug("Using Camera: %s", camera.describe())
     debug_writer = None
     if settings.debug_save_frames:
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
@@ -38,7 +43,7 @@ def monitor_loop(detector):
 
         if is_enabled:
             # Capture frame
-            print("Capturing frame...")
+            logger.debug("Capturing frame...")
             image = camera.capture_frame()
             saved = None
             if debug_writer is not None:
@@ -54,7 +59,7 @@ def monitor_loop(detector):
                 )
 
             # Detect
-            print("Analyzing...")
+            logger.debug("Analyzing...")
             is_slouching = detector.is_slouching(
                 image,
                 frame_id=(saved.frame_id if saved else None),
@@ -63,7 +68,7 @@ def monitor_loop(detector):
             )
 
             if is_slouching:
-                print("SLOUCH DETECTED!")
+                logger.info("SLOUCH DETECTED!")
                 from src.ui import show_slouch_popup, resolve_popup_backend
 
                 # If the popup opens the webcam (ffplay or Tk live), release our capture
@@ -78,11 +83,11 @@ def monitor_loop(detector):
                     and not feedback_mode
                     or (effective_backend == "tk" and settings.tk_popup_mode == "live")
                 )
-                print(
-                    "DEBUG: popup resolved "
-                    f"backend={effective_backend!r} "
-                    f"tk_popup_mode={settings.tk_popup_mode!r} "
-                    f"feedback_mode={feedback_mode}"
+                logger.debug(
+                    "popup resolved backend=%r tk_popup_mode=%r feedback_mode=%s",
+                    effective_backend,
+                    settings.tk_popup_mode,
+                    feedback_mode,
                 )
 
                 try:
@@ -221,15 +226,12 @@ def monitor_loop(detector):
                     # Popup closed (feedback mode)
                     pass
                 except Exception as e:
-                    import traceback
-
-                    print("CRITICAL: popup handling failed:\n" + traceback.format_exc())
-                    print(f"CRITICAL: {e}", file=sys.stderr)
+                    logger.exception("Popup handling failed: %s", e)
                 finally:
                     if will_use_webcam:
                         camera = Camera()
             else:
-                print("Posture OK.")
+                logger.debug("Posture OK.")
 
         # Sleep for configured interval
         for _ in range(settings.check_interval_seconds):
@@ -238,20 +240,20 @@ def monitor_loop(detector):
                     break
             time.sleep(1)
 
-    print("Releasing camera...")
+    logger.info("Releasing camera...")
     camera.release()
-    print("Monitor loop exited.")
+    logger.info("Monitor loop exited.")
 
 
 def on_toggle(enabled):
     with state.lock:
         state.enabled = enabled
     status = "Enabled" if enabled else "Disabled"
-    print(f"Monitoring {status}")
+    logger.info("Monitoring %s", status)
 
 
 def on_quit():
-    print("Quitting application...")
+    logger.info("Quitting application...")
     with state.lock:
         state.running = False
     from src.ui import shutdown_popup_worker
@@ -260,11 +262,12 @@ def on_quit():
 
 
 def main():
-    print("DEBUG: Starting Slouchless...")
-    print(
-        "DEBUG: Camera config: "
-        f"camera_name={settings.camera_name!r} "
-        f"camera_device_id={settings.camera_device_id!r}"
+    configure_logging(settings.log_level)
+    logger.info("Starting Slouchless...")
+    logger.debug(
+        "Camera config: camera_name=%r camera_device_id=%r",
+        settings.camera_name,
+        settings.camera_device_id,
     )
 
     # Ray can emit noisy (and typically harmless) errors if its internal OpenTelemetry
@@ -280,7 +283,7 @@ def main():
     if settings.debug_clear_frames_on_start:
         debug_dir = resolve_debug_dir(settings.debug_frames_dir)
         clear_debug_dir(debug_dir)
-        print(f"DEBUG: Cleared debug frames dir: {debug_dir}")
+        logger.debug("Cleared debug frames dir: %s", debug_dir)
 
     # Start popup worker EARLY (before any threads/UI) to avoid xcb/X11 crashes when
     # opening Tk windows from a threaded app.
@@ -296,11 +299,11 @@ def main():
             init_popup_worker()
 
     # Initialize Detector in MAIN thread to avoid multiprocessing/GIL deadlocks with vLLM
-    print("Initializing Slouch Detector (Main Thread)...")
+    logger.info("Initializing Slouch Detector (Main Thread)...")
     from src.detector import SlouchDetector
 
     detector = SlouchDetector()
-    print("DEBUG: Detector initialized in Main Thread.")
+    logger.info("Detector initialized in Main Thread.")
 
     # Start the monitoring thread, passing the initialized detector
     monitor_thread = threading.Thread(

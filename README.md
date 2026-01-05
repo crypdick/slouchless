@@ -42,6 +42,7 @@ Configuration is managed via `pydantic-settings` (`src/settings.py`). You can se
 | `SLOUCHLESS_TK_POPUP_UPDATE_MS` | Update interval for the live preview (default: `50`). |
 | `SLOUCHLESS_TK_POPUP_FEEDBACK_INTERVAL_MS` | For `SLOUCHLESS_TK_POPUP_MODE=feedback`: inference cadence while the popup is open (default: `500`). |
 | `SLOUCHLESS_TK_POPUP_AUTO_CLOSE_SECONDS` | If set to >0, auto-closes the popup after N seconds (default: `0`, disabled). |
+| `SLOUCHLESS_LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (default: `INFO`). |
 
 ## Popup live feedback (✅/🚨/⚠️)
 
