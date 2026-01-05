@@ -81,14 +81,14 @@ class Settings(BaseSettings):
     enforce_eager: bool = Field(default=True)
     distributed_executor_backend: Literal["ray", "mp"] = Field(default="ray")
     max_tokens: int = Field(default=10, ge=1)
-    temperature: float = Field(default=0.0, ge=0.0)
+    temperature: float = Field(default=1.0, ge=0.0)
     prompt: str = Field(
         default=(
             "Is this person slouching? Signs of bad posture:\n"
-            "- Head noticeably forward of shoulders\n"
+            "- Head craned forward\n"
             "- Shoulders rounded forward\n"
             "- Back hunched or curved\n\n"
-            "Say Yes if posture is clearly bad. Say No if posture looks reasonable (doesn't need to be perfect).\n\n"
+            "Say Yes if posture is **clearly** bad. Say No if posture is reasonable (we only want to alert on unacceptable posture).\n\n"
             'Format: "Yes, <how to fix, 6 max words>" or "No" or "Error: <reason, 6 words max>" if you can\'t see the person.'
         ),
         description="Shared prompt used by both vLLM and OpenAI detectors",
