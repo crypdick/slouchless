@@ -13,4 +13,3 @@ repos:
       - id: vulture
         args: [--min-confidence, "80", src, main.py, diagnose_popup.py]
         pass_filenames: false
-

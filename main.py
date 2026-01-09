@@ -31,8 +31,16 @@ def monitor_loop(detector):
     while not stop_event.is_set():
         if enabled_event.is_set():
             # Capture frame
-            log.debug("Capturing frame...")
-            image = camera.capture_frame()
+            try:
+                log.debug("Capturing frame...")
+                image = camera.capture_frame()
+            except Exception as e:
+                # Don't let transient camera issues kill the monitoring thread.
+                log.exception(f"Error capturing frame: {e}")
+                # Sleep for configured interval, but wake promptly on quit.
+                if stop_event.wait(timeout=settings.check_interval_seconds):
+                    break
+                continue
             saved = None
             if debug_writer is not None:
                 saved = debug_writer.save_frame(image)
@@ -47,13 +55,28 @@ def monitor_loop(detector):
                 )
 
             # Detect
-            log.debug("Analyzing...")
-            is_slouching = detector.is_slouching(
-                image,
-                frame_id=(saved.frame_id if saved else None),
-                frame_path=(str(saved.path) if saved else None),
-                debug_writer=debug_writer,
-            )
+            try:
+                log.debug("Analyzing...")
+                result = detector.analyze(
+                    image,
+                    frame_id=(saved.frame_id if saved else None),
+                    frame_path=(str(saved.path) if saved else None),
+                    debug_writer=debug_writer,
+                )
+            except Exception as e:
+                # Safety net: never crash the whole app because a single frame failed.
+                log.exception(f"Error analyzing frame: {e}")
+                if stop_event.wait(timeout=settings.check_interval_seconds):
+                    break
+                continue
+            if result.get("kind") == "error":
+                # Avoid printing "Posture OK" when the model couldn't see the frame.
+                log.warning(f"Skipping frame (detector error): {result.get('message')}")
+                if stop_event.wait(timeout=settings.check_interval_seconds):
+                    break
+                continue
+
+            is_slouching = result.get("slouching") is True
 
             if is_slouching:
                 log.error("SLOUCH DETECTED!")

@@ -295,9 +295,13 @@ class SlouchDetector:
             debug_writer=debug_writer,
         )
         if result["kind"] == "error":
-            raise RuntimeError(
-                f"{result['message']} (frame_id={frame_id} frame_path={frame_path})"
+            # Model-visible errors ("Error: ...") are common for bad frames
+            # (too dark, no person visible, etc.). Treat them as a skipped frame
+            # instead of crashing the whole monitoring thread.
+            log.warning(
+                f"Detector error: {result['message']} (frame_id={frame_id} frame_path={frame_path})"
             )
+            return False
         return result["slouching"] is True
 
     def analyze(
