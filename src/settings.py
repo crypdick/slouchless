@@ -82,12 +82,14 @@ class Settings(BaseSettings):
     temperature: float = Field(default=1.0, ge=0.0)
     prompt: str = Field(
         default=(
+            "You are looking at a single frame from a continuous webcam feed.\n"
             "Is this person slouching? Signs of bad posture:\n"
             "- Head craned forward\n"
             "- Shoulders rounded forward\n"
             "- Back hunched or curved\n\n"
-            "Say Yes if posture is **clearly** bad. Say No if posture is reasonable (we only want to alert on unacceptable posture).\n\n"
-            'Format: "Yes, <how to fix, 6 max words>" or "No" or "Error: <reason, 6 words max>" if you can\'t see the person.'
+            "Say Yes if posture is **clearly** bad. Say No if posture is reasonable (we only want to alert on unacceptable posture).\n"
+            "If the person is not at rest (e.g., taking off a sweater, scratching head, not facing their monitor, etc.) or their hands are NOT on the keyboard / typing, IGNORE the frame by responding with an Error.\n\n"
+            'Format: "Yes, <how to fix, 6 max words>" or "No" or "Error: <reason, 6 words max>" (use Error to ignore frames: person moving / not at rest / not typing; or if you can\'t see the person).'
         ),
         description="Shared prompt used by both vLLM and OpenAI detectors",
     )
