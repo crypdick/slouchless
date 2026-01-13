@@ -36,6 +36,8 @@ repos:
       - id: check-json
       - id: check-toml
       - id: check-merge-conflict
+      - id: check-illegal-windows-names
+      - id: check-symlinks
       - id: debug-statements
       - id: detect-private-key
       - id: mixed-line-ending
