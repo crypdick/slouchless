@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
     "sys_platform == 'darwin'",
@@ -1213,12 +1213,6 @@ wheels = [
 ]
 
 [[package]]
-name = "lolcat"
-version = "1.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c3/bc/8d5907a28123202f21f9f3d679e00a4e7c2022c9b2fd415545b9fe02b7ff/lolcat-1.4.tar.gz", hash = "sha256:c65c2ed768e0bd0a97a7141865a62db6e8d3cd20742288d087f94c5ac86e8954", size = 44836, upload-time = "2019-05-14T07:22:40.965Z" }
-
-[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2335,15 +2329,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyfiglet"
-version = "1.0.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c8/e3/0a86276ad2c383ce08d76110a8eec2fe22e7051c4b8ba3fa163a0b08c428/pyfiglet-1.0.4.tar.gz", hash = "sha256:db9c9940ed1bf3048deff534ed52ff2dafbbc2cd7610b17bb5eca1df6d4278ef", size = 1560615, upload-time = "2025-08-15T18:32:47.302Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/5c/fe9f95abd5eaedfa69f31e450f7e2768bef121dbdf25bcddee2cd3087a16/pyfiglet-1.0.4-py3-none-any.whl", hash = "sha256:65b57b7a8e1dff8a67dc8e940a117238661d5e14c3e49121032bd404d9b2b39f", size = 1806118, upload-time = "2025-08-15T18:32:45.556Z" },
-]
-
-[[package]]
 name = "pygments"
 version = "2.19.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2685,19 +2670,6 @@ wheels = [
 ]
 
 [[package]]
-name = "rich-pixels"
-version = "3.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pillow" },
-    { name = "rich" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/31/71/6d5cd4b8d67cd49366eda19aaf37f20094ce562223a91166109202590237/rich_pixels-3.0.1.tar.gz", hash = "sha256:4a81977d45437ce5009cdcaf70af80256c3bdfab870e87ab802c577ba4133235", size = 24631, upload-time = "2024-03-30T09:37:52.834Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/72/7264494bc0944db1166b73c88f19d9ddfc584dbbc77c210cd0f52f59c511/rich_pixels-3.0.1-py3-none-any.whl", hash = "sha256:e82c5aa0d00885609675494f16e1ef814c68fa795634f1d6917cae9159b755e1", size = 6004, upload-time = "2024-03-30T09:37:51.169Z" },
-]
-
-[[package]]
 name = "rich-toolkit"
 version = "0.17.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3036,37 +3008,25 @@ name = "slouchless"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "lolcat" },
     { name = "numpy" },
-    { name = "openai" },
     { name = "opencv-python" },
     { name = "pillow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "pyfiglet" },
     { name = "pystray" },
     { name = "ray" },
-    { name = "rich" },
-    { name = "rich-pixels" },
-    { name = "typer" },
     { name = "vllm" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "lolcat", specifier = ">=1.4" },
     { name = "numpy", specifier = ">=2.2.6" },
-    { name = "openai", specifier = ">=2.14.0" },
     { name = "opencv-python", specifier = ">=4.12.0.88" },
     { name = "pillow", specifier = ">=12.1.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
-    { name = "pyfiglet", specifier = ">=1.0.4" },
     { name = "pystray", specifier = ">=0.19.5" },
     { name = "ray", specifier = ">=2.53.0" },
-    { name = "rich", specifier = ">=14.2.0" },
-    { name = "rich-pixels", specifier = ">=3.0.1" },
-    { name = "typer", specifier = ">=0.21.0" },
     { name = "vllm", specifier = ">=0.13.0" },
 ]
 
